@@ -1,0 +1,114 @@
+name: 'Level Zero Linux Tests Build'
+description: 'Level Zero Linux Tests Build'
+inputs:
+  registry_host:
+    description: 'Registry Host'
+    required: true
+  registry_namespace:
+    description: 'Registry Namespace'
+    required: true
+  platform:
+    description: 'Build Platform'
+    required: true
+  infra_user:
+    description: 'Github Infrastructure user'
+    required: true
+  infra_password:
+    description: 'Github Infrastructure password'
+    required: true
+  LZ_ARTIFACTORY_PREFIX:
+    description: 'Level Zero Artifactory Prefix'
+    required: true
+  docker_image_version:
+    description: 'Base Docker Image Version'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        cd ${{ github.run_id }}
+        mkdir -p ./level-zero/${{ inputs.platform }}/
+        DEPENDENCY_IMAGE=amr-registry.caas.intel.com/level-zero-linux-compute/devtool:github
+        docker pull amr-registry.caas.intel.com/level-zero-linux-compute/devtool:github
+        CONTAINER_ID=`docker run -t -d --entrypoint /bin/bash ${DEPENDENCY_IMAGE}`
+        docker exec ${CONTAINER_ID} mkdir -p ./level-zero/master/${{ inputs.platform }}/install
+        docker exec ${CONTAINER_ID} dt asset download --root-url https://gfx-assets.fm.intel.com/artifactory --dest-dir ./level-zero/master/${{ inputs.platform }}/install ${{ inputs.LZ_ARTIFACTORY_PREFIX }}/level-zero/master/${{ inputs.platform }}/install level-zero
+        docker cp ${CONTAINER_ID}:/level-zero/. ./level-zero/${{ inputs.platform }}/
+        docker stop ${CONTAINER_ID}
+        docker rm ${CONTAINER_ID}
+
+        rm -rf ./devops
+        git clone https://${{ inputs.infra_user }}:${{ inputs.infra_password }}@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git ./devops
+        rm -rf ./docker
+        mkdir -p ./docker
+        test -e ./docker/build-ubuntu.Dockerfile || cp -v ./devops/supplemental/level-zero-tests/docker/build-ubuntu.Dockerfile ./docker/build-ubuntu.Dockerfile
+
+        BUILD_IMAGE=${{ inputs.registry_host }}/${{ inputs.registry_namespace }}/ci-${GITHUB_REPOSITORY}-${{ inputs.platform }}
+        PR_BRANCH="${{ github.head_ref }}"
+        [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
+
+        cd level-zero-tests
+        mkdir -p ./build
+        mkdir -p ./level-zero-tests/${CI_BRANCH}/${{ inputs.platform }}/install/level-zero-tests
+        cd ../
+
+        ls -laR level-zero/
+
+        echo "ADD level-zero-tests/ /project" >> ./docker/build-ubuntu.Dockerfile
+        echo "ADD level-zero/ /project" >> ./docker/build-ubuntu.Dockerfile
+        cp ./docker/build-ubuntu.Dockerfile Dockerfile
+        docker build \
+          --cache-from ${BUILD_IMAGE}:${GITHUB_RUN_ID} \
+          --cache-from ${BUILD_IMAGE}:${CI_BRANCH} \
+          --cache-from ${BUILD_IMAGE}:master \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --build-arg http_proxy \
+          --build-arg https_proxy \
+          --build-arg IMAGE_VERSION=${{ inputs.docker_image_version }} \
+          -t ${BUILD_IMAGE}:${CI_BRANCH} \
+          -t ${BUILD_IMAGE}:${GITHUB_RUN_ID} \
+          .
+        docker push ${BUILD_IMAGE}:${CI_BRANCH}
+        docker push ${BUILD_IMAGE}:${GITHUB_RUN_ID}
+      shell: bash
+      name: Setup Dependencies
+    - run: |
+        cd ${{ github.run_id }}
+        BUILD_IMAGE=${{ inputs.registry_host }}/${{ inputs.registry_namespace }}/ci-${GITHUB_REPOSITORY}-${{ inputs.platform }}
+
+        CONTAINER_ID=`docker run -t -d -w /project ${BUILD_IMAGE}:${GITHUB_RUN_ID}`
+        docker exec ${CONTAINER_ID} /project/clang-format-patch.sh /project > clang_format_results.txt
+        docker stop $CONTAINER_ID
+        docker rm $CONTAINER_ID
+        if [ -s ./clang_format_results.txt ]
+        then
+                echo "Clang Format Check failed"
+                cat ./clang_format_results.txt
+                exit 1
+        else
+                echo "Clang Format Check Succeeded"
+        fi
+      shell: bash
+      name: Check Clang format
+    - run : |
+        cd ${{ github.run_id }}
+        BUILD_IMAGE=${{ inputs.registry_host }}/${{ inputs.registry_namespace }}/ci-${GITHUB_REPOSITORY}-${{ inputs.platform }}
+
+        CONTAINER_ID=`docker run -t -d -w /project/build ${BUILD_IMAGE}:${GITHUB_RUN_ID}`
+
+        PR_BRANCH="${{ github.head_ref }}"
+        [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
+        echo ${BUILD_IMAGE}:${GITHUB_RUN_ID}
+
+        for type in perf conformance negative layer; do
+          mkdir -p ./output/${CI_BRANCH}/${{ inputs.platform }}/install/level-zero-tests-${type}
+          docker exec ${CONTAINER_ID} sh -c "cmake -G Ninja -D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache -D CMAKE_BUILD_TYPE=Release -D GROUP="/${type}_tests" -D CMAKE_PREFIX_PATH=/project/${{ inputs.platform }}/master/${{ inputs.platform }}/install/ -D REQUIRE_OPENCL_BENCHMARKS=yes -D CMAKE_INSTALL_PREFIX=/project/level-zero-tests/${CI_BRANCH}/${{ inputs.platform }}/install/level-zero-tests-${type} /project"
+          docker exec ${CONTAINER_ID} sh -c "cmake --build . --target install"
+          docker cp ${CONTAINER_ID}:/project/level-zero-tests/${CI_BRANCH}/${{ inputs.platform }}/install/level-zero-tests-${type}/. ./output/${CI_BRANCH}/${{ inputs.platform }}/install/level-zero-tests-${type}
+        done
+
+        docker stop ${CONTAINER_ID}
+        docker rm ${CONTAINER_ID}
+      shell: bash
+      name: Build Level Zero Tests

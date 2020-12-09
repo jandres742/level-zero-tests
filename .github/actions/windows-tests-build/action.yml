@@ -1,0 +1,63 @@
+name: 'Level Zero Windows Tests Build'
+description: 'Build Level Zero Builds Tests for windows'
+inputs:
+  registry_host:
+    description: 'Registry Host'
+    required: true
+  registry_namespace:
+    description: 'Registry Namespace'
+    required: true
+  platform:
+    description: 'Build Platform'
+    required: true
+  infra_user:
+    description: 'Github Infrastructure user'
+    required: true
+  infra_password:
+    description: 'Github Infrastructure password'
+    required: true
+  VS_PRODUCT_KEY:
+    description: 'Visual Studio Product Key'
+    required: true
+  VS_EDITION:
+    description: 'Visual Studio Edition'
+    required: true
+  LZ_ARTIFACTORY_PREFIX:
+    description: 'Level Zero Artifactory Prefix'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        cd ${{ github.run_id }}
+        $env:PR_BRANCH = "${{ github.head_ref }}"
+        $env:Target_Branch_Name = Split-Path ${env:GITHUB_REF} -leaf
+        if ($env:PR_BRANCH -eq $null) {$env:CI_BRANCH = "${env:Target_Branch_Name}"} else {$env:CI_BRANCH = "${{ github.head_ref }}"}
+        $env:BUILD_IMAGE = "${{ inputs.registry_host }}/${{ inputs.registry_namespace }}/ci-$env:CI_BRANCH-${{ inputs.platform }}"
+
+        git clone https://"${{ inputs.infra_user }}":"${{ inputs.infra_password }}"@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git ./devops
+        if ((test-path .\docker\build-windows.Dockerfile) -bxor 1) {xcopy .\devops\supplemental\level-zero-tests\docker\build-windows.Dockerfile .\docker\build-windows.Dockerfile*}
+        cat ./docker/build-windows.Dockerfile | docker build --build-arg ${env:http_proxy} --build-arg ${env:https_proxy} --build-arg VS_PRODUCT_KEY="${{ inputs.VS_PRODUCT_KEY }}" --build-arg VS_EDITION="${{ inputs.VS_EDITION }}" -t ${env:BUILD_IMAGE}:${env:CI_BRANCH} -t ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID} -
+
+        mkdir -p ./level-zero/${{ inputs.platform }}/install -f
+
+        cd ../
+        If(-not (Test-Path ${pwd}/devtool)) {
+          git clone https://gitlab.devtools.intel.com/vtt/sws/devtool.git ${pwd}/devtool
+          .\devtool\dt download_tools
+        }
+        .\devtool\dt asset download --root-url https://gfx-assets.fm.intel.com/artifactory --dest-dir ./${{ github.run_id }}/level-zero/${{ inputs.platform }}/install ${{ inputs.LZ_ARTIFACTORY_PREFIX }}/level-zero/master/${{ inputs.platform }}/install level-zero
+        cd ${{ github.run_id }}
+
+        echo ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID}
+
+        mkdir .\build -f
+        $tests = "perf", "conformance", "negative", "layer"
+        Foreach ($type in $tests)
+        {
+          mkdir .\level-zero-tests\${env:CI_BRANCH}\windows\install\level-zero-tests-${type}
+          docker run --rm -v ${pwd}:C:\project -w C:\project\build -e CC=clcache -e CXX=clcache ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID} cmake -G Ninja -D REQUIRE_OPENCL_BENCHMARKS=yes -D GROUP="/${type}_tests" -D CMAKE_PREFIX_PATH="/boost;/zlib;/libpng;/opencl;C:\project\level-zero\windows\install\" -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=C:\project\level-zero-tests\${env:CI_BRANCH}\windows\install\level-zero-tests-${type} C:\project
+          docker run --rm -v ${pwd}:C:\project -w C:\project\build -v C:\clcache:C:\clcache -e CLCACHE_DIR=C:\clcache ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID} cmake --build . --target install
+        }
+      shell: powershell

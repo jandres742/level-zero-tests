@@ -1,0 +1,156 @@
+name: Pull-Request
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+# LINUX CI
+
+# Checkout the current git repo at the branch and commit ref along with all tags
+  LINUX_CI_INIT:
+# The tagged runner that the task will be running on
+    runs-on: github-kubernetes-runner
+
+    steps:
+      - name: Removing Github Runner Artifacts
+        run: rm -rf ${{ github.run_id }}
+      - name: Login to docker
+        run: |
+            retries=0
+            until [ "$retries" -ge 3 ]
+            do
+              docker login -u ${{ secrets.LZ_REGISTRY_USER }} -p ${{ secrets.LZ_REGISTRY_PASSWORD }} ${{ secrets.LZ_REGISTRY_HOST }} && break
+              retries=$((retries+1))
+              sleep 1
+            done
+      - uses: actions/checkout@v2
+        with:
+          clean: false
+      - uses: actions/checkout@v2
+        with:
+# This option forces checkout to include all the tags, fetch-depth > 0 will pull the single commit but no tags
+          fetch-depth: 0
+# This option replaces GIT_SUBMODULE_STRATEGY and recursively will checkout submodules (needed for level zero tests)
+          submodules: recursive
+# This option forces checkout to the github runner id. This is accessed thru the github context that is accessible thru all steps. See here for more info: https://docs.github.com/en/free-pro-team@latest/actions/reference/context-and-expression-syntax-for-github-actions#github-context 
+          path: ${{ github.run_id }}/level-zero-tests
+
+  level-zero-tests-ubuntu-bionic-install:
+    runs-on: github-kubernetes-runner
+    needs: [LINUX_CI_INIT]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - uses: ./.github/actions/linux-tests-build
+        with:
+          registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
+          registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
+          platform: ubuntu-bionic
+          infra_user: ${{ secrets.LZ_DEVOPS_CLONE_USER }}
+          infra_password: ${{ secrets.LZ_DEVOPS_CLONE_PASSWORD }}
+          LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
+          docker_image_version: bionic-20200807
+
+  level-zero-tests-ubuntu-eoan-install:
+    runs-on: github-kubernetes-runner
+    needs: [LINUX_CI_INIT]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - uses: ./.github/actions/linux-tests-build
+        with:
+          registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
+          registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
+          platform: ubuntu-eoan
+          infra_user: ${{ secrets.LZ_DEVOPS_CLONE_USER }}
+          infra_password: ${{ secrets.LZ_DEVOPS_CLONE_PASSWORD }}
+          LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
+          docker_image_version: eoan-20200114
+
+# After the build is complete, if all the install steps completed successfully, then we need to cleanup the runid folder created
+  level-zero-tests-linux-build-Artifact-cleanup:
+    runs-on: github-kubernetes-runner
+    needs: [level-zero-tests-ubuntu-bionic-install, level-zero-tests-ubuntu-eoan-install]
+    if: always()
+    steps:
+      - name: Removing Github Runner Artifacts
+        run: |
+          rm -rf ${{ github.run_id }}
+        shell: bash
+
+# Windows CI
+
+  WINDOWS_CI_INIT:
+  # The tagged runner that the task will be running on
+      runs-on: gklab-l0win-2
+      steps:
+        - name: Removing Github Runner Artifacts
+          run: |
+            Remove-Item .\${{ github.run_id }}\ -Recurse -Force -ErrorAction Ignore
+        - name: Setup GIT Support for tests checkout
+# Windows runners use PowerShell scripting to perform run, all command prompt command syntax will fail
+          run: |
+            git config --system core.longpaths true
+        - uses: actions/checkout@v2
+          with:
+            clean: false
+        - uses: actions/checkout@v2
+          with:
+            fetch-depth: 0
+            submodules: recursive
+            path: ${{ github.run_id }}
+        - name: Login to docker
+          run: |
+            $StopRetry = $false
+            [int]$Retrycount = "0"
+            do {
+              try {
+                docker login -u ${{ secrets.LZ_REGISTRY_USER }} -p ${{ secrets.LZ_REGISTRY_PASSWORD }} ${{ secrets.LZ_REGISTRY_HOST }}
+                Write-Host "Docker Login Successful"
+                $StopRetry = $true
+              } catch {
+              if ($Retrycount -gt 3){
+              Write-Host "Docker Login failed after 3 retrys."
+              $StopRetry = $true
+              } else {
+                Write-Host "Docker Login failed retrying in 1 second"
+                Start-Sleep -Seconds 1
+                $Retrycount = $Retrycount + 1
+                }
+              }
+            } While ($StopRetry -eq $false)
+
+  level-zero-tests-windows-install:
+    runs-on: gklab-l0win-2
+    needs: [WINDOWS_CI_INIT]
+    env:
+        http_proxy: http://proxy-chain.intel.com:911
+        https_proxy: http://proxy-chain.intel.com:911
+
+    steps:
+      - uses: ./.github/actions/windows-tests-build
+        with:
+          registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
+          registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
+          platform: windows
+          infra_user: ${{ secrets.LZ_DEVOPS_CLONE_USER }}
+          infra_password: ${{ secrets.LZ_DEVOPS_CLONE_PASSWORD }}
+          VS_PRODUCT_KEY: ${{ secrets.LZ_VS_PRODUCT_KEY }}
+          VS_EDITION: ${{ secrets.LZ_VS_EDITION }}
+          LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
+
+# After the build is complete, if all the install steps completed successfully, then we need to cleanup the runid folder created
+  level-zero-tests-windows-build-cleanup:
+    runs-on: gklab-l0win-2
+    needs: [level-zero-tests-windows-install]
+    if: always()
+    steps:
+      - name: Removing Github Runner Artifacts
+        run: |
+          Remove-Item .\${{ github.run_id }}\ -Recurse -Force

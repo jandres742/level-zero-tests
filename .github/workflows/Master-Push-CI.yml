@@ -1,0 +1,304 @@
+name: Push
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+
+# LINUX CI
+
+# Checkout the current git repo at the branch and commit ref along with all tags
+  LINUX_CI_INIT:
+# The tagged runner that the task will be running on
+    runs-on: github-kubernetes-runner
+
+    steps:
+      - name: Cleanup Github run artifacts
+        run: rm -rf ${{ github.run_id }}
+      - name: Login to docker
+        run: |
+            retries=0
+            until [ "$retries" -ge 3 ]
+            do
+              docker login -u ${{ secrets.LZ_REGISTRY_USER }} -p ${{ secrets.LZ_REGISTRY_PASSWORD }} ${{ secrets.LZ_REGISTRY_HOST }} && break
+              retries=$((retries+1))
+              sleep 1
+            done
+      - uses: actions/checkout@v2
+        with:
+          clean: false
+      - uses: actions/checkout@v2
+        with:
+# This option forces checkout to include all the tags, fetch-depth > 0 will pull the single commit but no tags
+          fetch-depth: 0
+# This option replaces GIT_SUBMODULE_STRATEGY and recursively will checkout submodules (needed for level zero tests)
+          submodules: recursive
+# This option forces checkout to the github runner id. This is accessed thru the github context that is accessible thru all steps. See here for more info: https://docs.github.com/en/free-pro-team@latest/actions/reference/context-and-expression-syntax-for-github-actions#github-context 
+          path: ${{ github.run_id }}/level-zero-tests
+
+  level-zero-tests-ubuntu-bionic-install:
+    runs-on: github-kubernetes-runner
+    needs: [LINUX_CI_INIT]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - uses: ./.github/actions/linux-tests-build
+        with:
+          registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
+          registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
+          platform: ubuntu-bionic
+          infra_user: ${{ secrets.LZ_DEVOPS_CLONE_USER }}
+          infra_password: ${{ secrets.LZ_DEVOPS_CLONE_PASSWORD }}
+          LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
+          docker_image_version: bionic-20200807
+
+  level-zero-tests-ubuntu-eoan-install:
+    runs-on: github-kubernetes-runner
+    needs: [LINUX_CI_INIT]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - uses: ./.github/actions/linux-tests-build
+        with:
+          registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
+          registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
+          platform: ubuntu-eoan
+          infra_user: ${{ secrets.LZ_DEVOPS_CLONE_USER }}
+          infra_password: ${{ secrets.LZ_DEVOPS_CLONE_PASSWORD }}
+          LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
+          docker_image_version: eoan-20200114
+
+  level-zero-tests-deploy-linux:
+    runs-on: github-kubernetes-runner
+    needs: [level-zero-tests-legacygta-pre-deploy-linux]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - name: Publish Level Zero Tests Artifacts for Linux
+        run: |
+          DEVTOOL_DOCKER=amr-registry.caas.intel.com/level-zero-linux-compute/devtool:github
+          cd ${{ github.run_id }}/level-zero-tests
+
+          PR_BRANCH="${{ github.head_ref }}"
+          [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
+
+          SHORT_SHA=`git rev-parse --short ${GITHUB_SHA}`
+          cd ../
+          docker pull ${DEVTOOL_DOCKER}
+          CONTAINER_ID=`docker run -t -d --entrypoint /bin/bash ${DEVTOOL_DOCKER}`
+          for BUILD_PLATFORM in ubuntu-bionic ubuntu-eoan; do
+            for type in perf conformance negative layer; do
+              docker exec ${CONTAINER_ID} mkdir -p ./level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}
+              docker cp ./output/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/ ${CONTAINER_ID}:/level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/.
+              docker exec ${CONTAINER_ID} dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory ${{ secrets.LZ_DEPLOY_ARTIFACTORY_PREFIX }}/level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install level-zero-tests-${type} ${SHORT_SHA}-github_${GITHUB_RUN_ID} ./level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/
+            done
+          done
+          docker stop ${CONTAINER_ID}
+          docker rm ${CONTAINER_ID}
+
+  level-zero-tests-legacygta-pre-deploy-linux:
+    runs-on: github-kubernetes-runner
+    needs: [level-zero-tests-ubuntu-bionic-install,
+            level-zero-tests-ubuntu-eoan-install]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - name: Package GTA Artifacts for Linux
+        run: |
+          cd ${{ github.run_id }}
+          PR_BRANCH="${{ github.head_ref }}"
+          [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
+
+          for type in perf conformance negative; do
+              mkdir -p ./level-zero-tests-legacygta/${CI_BRANCH}/level-zero-tests-${type}-u1804+win;
+              cp -r ./output/${CI_BRANCH}/ubuntu-bionic/install/level-zero-tests-${type} ./level-zero-tests-legacygta/${CI_BRANCH}/level-zero-tests-${type}-u1804+win/${type}-tests-Linux;
+              if [ $type == "conformance" ];
+              then
+                cp ./output/${CI_BRANCH}/ubuntu-bionic/install/level-zero-tests-layer/* ./level-zero-tests-legacygta/${CI_BRANCH}/level-zero-tests-${type}-u1804+win/${type}-tests-Linux;
+              fi;
+              pushd ./level-zero-tests-legacygta/${CI_BRANCH}/level-zero-tests-${type}-u1804+win;
+              tar -czvf ${type}-tests-Linux.tar.gz ${type}-tests-Linux;
+              echo ${type}-tests-Linux;
+              rm -rf ${type}-tests-Linux;
+              popd;
+          done
+      - name: Publish Linux Artifacts in Artifactory for level-zero-tests-pre-deploy-linux
+        run: |
+          DEVTOOL_DOCKER=amr-registry.caas.intel.com/level-zero-linux-compute/devtool:github
+          cd ${{ github.run_id }}/level-zero-tests
+
+          PR_BRANCH="${{ github.head_ref }}"
+          [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
+
+          SHORT_SHA=`git rev-parse --short ${GITHUB_SHA}`
+          cd ../
+          docker pull ${DEVTOOL_DOCKER}
+          CONTAINER_ID=`docker run -t -d --entrypoint /bin/bash ${DEVTOOL_DOCKER}`
+          for type in perf conformance negative; do
+            docker exec ${CONTAINER_ID} mkdir -p ./level-zero-tests-legacygta/${CI_BRANCH}/level-zero-tests-${type}-u1804+win
+            docker cp ./level-zero-tests-legacygta/${CI_BRANCH}/level-zero-tests-${type}-u1804+win/ ${CONTAINER_ID}:/level-zero-tests-legacygta/${CI_BRANCH}/level-zero-tests-${type}-u1804+win/.
+            docker exec ${CONTAINER_ID} dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory  ${{ secrets.LZ_DEPLOY_ARTIFACTORY_PREFIX }}/level-zero-tests-legacygta-linux-staging/${CI_BRANCH} level-zero-tests-${type}-u1804+win ${SHORT_SHA}-github_${GITHUB_RUN_ID} ./level-zero-tests-legacygta/${CI_BRANCH}/level-zero-tests-${type}-u1804+win/
+          done
+          docker stop ${CONTAINER_ID}
+          docker rm ${CONTAINER_ID}
+
+# After the build is complete, if all the install steps completed successfully, then we need to cleanup the runid folder created
+  level-zero-tests-linux-build-Artifact-cleanup:
+    runs-on: github-kubernetes-runner
+    needs: [level-zero-tests-deploy-linux]
+    if: always()
+    steps:
+      - name: Removing Github Runner Artifacts
+        run: |
+          rm -rf ${{ github.run_id }}
+        shell: bash
+
+# Windows CI
+
+  WINDOWS_CI_INIT:
+  # The tagged runner that the task will be running on
+      runs-on: gklab-l0win-2
+      steps:
+        - name: Removing Old Github Runner Artifacts
+          run: |
+            Remove-Item .\${{ github.run_id }}\ -Recurse -Force -ErrorAction Ignore
+        - name: Setup GIT Support for tests checkout
+# Windows runners use PowerShell scripting to perform run, all command prompt command syntax will fail
+          run: |
+            git config --system core.longpaths true
+        - uses: actions/checkout@v2
+          with:
+            clean: false
+        - uses: actions/checkout@v2
+          with:
+            fetch-depth: 0
+            submodules: recursive
+            path: ${{ github.run_id }}
+        - name: Login to docker
+          run: |
+            $StopRetry = $false
+            [int]$Retrycount = "0"
+            do {
+              try {
+                docker login -u ${{ secrets.LZ_REGISTRY_USER }} -p ${{ secrets.LZ_REGISTRY_PASSWORD }} ${{ secrets.LZ_REGISTRY_HOST }}
+                Write-Host "Docker Login Successful"
+                $StopRetry = $true
+              } catch {
+              if ($Retrycount -gt 3){
+              Write-Host "Docker Login failed after 3 retrys."
+              $StopRetry = $true
+              } else {
+                Write-Host "Docker Login failed retrying in 1 second"
+                Start-Sleep -Seconds 1
+                $Retrycount = $Retrycount + 1
+                }
+              }
+            } While ($StopRetry -eq $false)
+
+  level-zero-tests-windows-install:
+    runs-on: gklab-l0win-2
+    needs: [WINDOWS_CI_INIT]
+    env:
+        http_proxy: http://proxy-chain.intel.com:911
+        https_proxy: http://proxy-chain.intel.com:911
+
+    steps:
+      - uses: ./.github/actions/windows-tests-build
+        with:
+          registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
+          registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
+          platform: windows
+          infra_user: ${{ secrets.LZ_DEVOPS_CLONE_USER }}
+          infra_password: ${{ secrets.LZ_DEVOPS_CLONE_PASSWORD }}
+          VS_PRODUCT_KEY: ${{ secrets.LZ_VS_PRODUCT_KEY }}
+          VS_EDITION: ${{ secrets.LZ_VS_EDITION }}
+          LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
+
+  level-zero-tests-legacygta-pre-deploy-windows:
+    runs-on: gklab-l0win-2
+    needs: [level-zero-tests-windows-install]
+    steps:
+      - name: Package GTA Artifacts for Windows
+        run: |
+          cd ${{ github.run_id }}
+          $env:PR_BRANCH = "${{ github.head_ref }}"
+          $env:Target_Branch_Name = Split-Path ${env:GITHUB_REF} -leaf
+          if ($env:PR_BRANCH -eq $null) {$env:CI_BRANCH = "${env:Target_Branch_Name}"} else {$env:CI_BRANCH = "${{ github.head_ref }}"}
+
+          $tests = "perf", "conformance", "negative"
+          Foreach ($type in $tests)
+          {
+            mkdir -p ./level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win -f
+            cp -Force -r ./level-zero-tests/${env:CI_BRANCH}/windows/install/level-zero-tests-${type} ./level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win/${type}-tests-win64
+            if ( $type -eq "conformance" )
+            {
+              cp ./level-zero-tests/${env:CI_BRANCH}/windows/install/level-zero-tests-layer/* ./level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win/${type}-tests-win64
+            }
+            pushd ./level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win
+            Compress-Archive -Force -Path ${type}-tests-win64 -DestinationPath ${type}-tests-win64.zip
+            Remove-Item .\${type}-tests-win64\ -Recurse
+            popd
+          }
+
+  level-zero-tests-windows-deploy:
+    runs-on: gklab-l0win-2
+    needs: [level-zero-tests-deploy-legacygta]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+    - name: Upload Level Zero Tests Artifacts
+      run: |
+        cd ${{ github.run_id }}
+        $env:PR_BRANCH = "${{ github.head_ref }}"
+        $env:Target_Branch_Name = Split-Path ${env:GITHUB_REF} -leaf
+        if ($env:PR_BRANCH -eq $null) {$env:CI_BRANCH = "${env:Target_Branch_Name}"} else {$env:CI_BRANCH = "${{ github.head_ref }}"}
+        $env:SHORT_SHA = git rev-parse --short ${env:GITHUB_SHA}
+        cd ../
+        $tests = "perf", "conformance", "negative", "layer"
+        Foreach ($type in $tests)
+        {
+          .\devtool\dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory  ${{ secrets.LZ_DEPLOY_ARTIFACTORY_PREFIX }}/level-zero-tests/${env:CI_BRANCH}/windows/install level-zero-tests-${type} ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} ./${{ github.run_id }}/level-zero-tests/${env:CI_BRANCH}/windows/install/level-zero-tests-${type}
+        }
+        cd ${{ github.run_id }}
+
+  level-zero-tests-deploy-legacygta:
+    runs-on: gklab-l0win-2
+    needs: [level-zero-tests-legacygta-pre-deploy-windows,
+           level-zero-tests-legacygta-pre-deploy-linux]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+    - name: Upload Legacy GTA Artifacts
+      run: |
+        cd ${{ github.run_id }}
+        $env:PR_BRANCH = "${{ github.head_ref }}"
+        $env:Target_Branch_Name = Split-Path ${env:GITHUB_REF} -leaf
+        if ($env:PR_BRANCH -eq $null) {$env:CI_BRANCH = "${env:Target_Branch_Name}"} else {$env:CI_BRANCH = "${{ github.head_ref }}"}
+        $env:SHORT_SHA = git rev-parse --short ${env:GITHUB_SHA}
+        cd ../
+        $tests = "perf", "conformance", "negative"
+        Foreach ($type in $tests)
+        {
+          .\devtool\dt asset download --root-url https://gfx-assets.fm.intel.com/artifactory --dest-dir ./${{ github.run_id }}/level-zero-tests-legacygta/${env:CI_BRANCH} ${{ secrets.LZ_DEPLOY_ARTIFACTORY_PREFIX }}/level-zero-tests-legacygta-linux-staging/${env:CI_BRANCH} level-zero-tests-${type}-u1804+win ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID}
+          .\devtool\dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory  ${{ secrets.LZ_DEPLOY_ARTIFACTORY_PREFIX }}/level-zero-tests-legacygta/${env:CI_BRANCH} level-zero-tests-${type}-u1804+win ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} ./${{ github.run_id }}/level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win
+        }
+        cd ${{ github.run_id }}
+
+# After the build is complete, if all the install steps completed successfully, then we need to cleanup the runid folder created
+  level-zero-tests-windows-build-cleanup:
+    runs-on: gklab-l0win-2
+    needs: [level-zero-tests-windows-deploy]
+    if: always()
+    steps:
+      - name: Removing Github Runner Artifacts
+        run: |
+          Remove-Item .\${{ github.run_id }}\ -Recurse -Force
