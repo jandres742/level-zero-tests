@@ -96,7 +96,7 @@ jobs:
             for type in perf conformance negative layer; do
               docker exec ${CONTAINER_ID} mkdir -p ./level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}
               docker cp ./output/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/ ${CONTAINER_ID}:/level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/.
-              docker exec ${CONTAINER_ID} dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory ${{ secrets.LZ_DEPLOY_ARTIFACTORY_PREFIX }}/level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install level-zero-tests-${type} ${SHORT_SHA}-github_${GITHUB_RUN_ID} ./level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/
+              docker exec ${CONTAINER_ID} dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory ${{ secrets.LZ_DEPLOY_ARTIFACTORY_PREFIX }}/level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install level-zero-tests-${type} ${SHORT_SHA}-github_${GITHUB_RUN_ID} ./level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}
             done
           done
           docker stop ${CONTAINER_ID}
