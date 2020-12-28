@@ -77,7 +77,7 @@ runs:
         cd ${{ github.run_id }}
         BUILD_IMAGE=${{ inputs.registry_host }}/${{ inputs.registry_namespace }}/ci-${GITHUB_REPOSITORY}-${{ inputs.platform }}
 
-        CONTAINER_ID=`docker run -t -d -w /project ${BUILD_IMAGE}:${GITHUB_RUN_ID}`
+        CONTAINER_ID=`docker run -t -d -w /project --entrypoint /bin/bash ${BUILD_IMAGE}:${GITHUB_RUN_ID}`
         docker exec ${CONTAINER_ID} /project/clang-format-patch.sh /project > clang_format_results.txt
         docker stop $CONTAINER_ID
         docker rm $CONTAINER_ID
@@ -95,7 +95,7 @@ runs:
         cd ${{ github.run_id }}
         BUILD_IMAGE=${{ inputs.registry_host }}/${{ inputs.registry_namespace }}/ci-${GITHUB_REPOSITORY}-${{ inputs.platform }}
 
-        CONTAINER_ID=`docker run -t -d -w /project/build ${BUILD_IMAGE}:${GITHUB_RUN_ID}`
+        CONTAINER_ID=`docker run -t -d -w /project/build --entrypoint /bin/bash ${BUILD_IMAGE}:${GITHUB_RUN_ID}`
 
         PR_BRANCH="${{ github.head_ref }}"
         [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
