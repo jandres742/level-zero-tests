@@ -10,6 +10,35 @@ on:
 
 jobs:
 
+
+jobs:
+
+  cherry-pick-upstream:
+    env: 
+      PUBLIC_REPO_URL: https://github.com/oneapi-src/level-zero-tests
+    runs-on: github-kubernetes-runner
+    if: github.ref == 'refs/heads/master' && !startsWith(github.event.head_commit.message, '[CI]')
+    steps:
+    - name: Removing Github Runner Artifacts from previous run
+      run: |
+        rm -rf ${{ github.run_id }}/level-zero-tests-cherrypick
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        path: ${{ github.run_id }}/level-zero-tests-cherrypick
+    - name: Cherry-pick to upstream
+      run: |
+        cd ${{ github.run_id }}//level-zero-tests-cherrypick
+        git config --global user.email "brandon.yates@intel.com"
+        git config --global user.name "Brandon Yates"
+        git checkout upstream
+        git cherry-pick ${{ github.sha }}
+        git push origin upstream
+
+      #git remote add public ${{ env.PUBLIC_REPO_URL }}
+      #git push public upstream:master
+
+
 # LINUX CI
 
 # Checkout the current git repo at the branch and commit ref along with all tags
