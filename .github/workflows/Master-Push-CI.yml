@@ -10,9 +10,6 @@ on:
 
 jobs:
 
-
-jobs:
-
   cherry-pick-upstream:
     env: 
       PUBLIC_REPO_URL: https://github.com/oneapi-src/level-zero-tests
