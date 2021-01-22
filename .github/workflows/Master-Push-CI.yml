@@ -23,6 +23,7 @@ jobs:
       with:
         fetch-depth: 0
         path: ${{ github.run_id }}/level-zero-tests-cherrypick
+        token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
     - name: Cherry-pick to upstream
       run: |
         cd ${{ github.run_id }}//level-zero-tests-cherrypick
