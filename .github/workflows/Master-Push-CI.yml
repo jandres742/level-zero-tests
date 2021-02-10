@@ -178,10 +178,38 @@ jobs:
           docker stop ${CONTAINER_ID}
           docker rm ${CONTAINER_ID}
 
+# After the build is complete, if all CI publishing is complete, then we need to add the new test items to GTA.
+  level-zero-tests-linux-GTA-Test-Item-Publishing:
+    runs-on: github-kubernetes-runner
+    needs: [level-zero-tests-deploy-linux,
+            level-zero-tests-windows-deploy,
+            level-zero-tests-deploy-legacygta]
+    steps:
+      - name: Combine all tests into single folder for GTA
+        run: |
+          cd ${{ github.run_id }}
+          PR_BRANCH="${{ github.head_ref }}"
+          [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
+
+          mkdir -p ./level-zero-tests-GTA/${CI_BRANCH}/;
+          for type in perf layer conformance negative; do
+              cp -r ./output/${CI_BRANCH}/ubuntu-bionic/install/level-zero-tests-${type}/* ./level-zero-tests-GTA/${CI_BRANCH}/;
+          done
+      - name: Publishing New/Updated GTA Test Items
+        run: |
+          pushd ${{ github.run_id }}
+          PR_BRANCH="${{ github.head_ref }}"
+          [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
+          popd
+          pushd .github/scripts/
+          ./update_gta_test_items.sh ../../${{ github.run_id }}/level-zero-tests-GTA/${CI_BRANCH}  ${{ secrets.LZLC_GTA_TEST_ITEM_UPDATE_TOKEN }}
+          popd
+        shell: bash
+
 # After the build is complete, if all the install steps completed successfully, then we need to cleanup the runid folder created
   level-zero-tests-linux-build-Artifact-cleanup:
     runs-on: github-kubernetes-runner
-    needs: [level-zero-tests-deploy-linux]
+    needs: [level-zero-tests-linux-GTA-Test-Item-Publishing]
     if: always()
     steps:
       - name: Removing Github Runner Artifacts
