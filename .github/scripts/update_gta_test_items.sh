@@ -1,3 +1,5 @@
+# Set the GITHASH tag from the tests repo
+GITHASH=$3
 # Checkout dave-compute-library repo to master
 if [ -d "../../dave-compute-library" ]; then
     rm -rf ../../dave-compute-library
@@ -5,7 +7,6 @@ fi
 git clone https://$2@github.com/nrspruit/drivers.gpu.validation.dave-compute-library.git ../../dave-compute-library
 pushd ../../dave-compute-library
 # create a L0 test item branch
-GITHASH=`git rev-parse --short HEAD`
 git branch L0_Test_Item_UPDATE_$GITHASH
 git checkout L0_Test_Item_UPDATE_$GITHASH
 git rebase origin/master

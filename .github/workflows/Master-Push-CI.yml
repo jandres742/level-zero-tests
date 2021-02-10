@@ -199,10 +199,11 @@ jobs:
         run: |
           pushd ${{ github.run_id }}
           PR_BRANCH="${{ github.head_ref }}"
+          GITHASH=`git rev-parse --short HEAD`
           [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
           popd
           pushd .github/scripts/
-          ./update_gta_test_items.sh ../../${{ github.run_id }}/level-zero-tests-GTA/${CI_BRANCH}  ${{ secrets.LZLC_GTA_TEST_ITEM_UPDATE_TOKEN }}
+          ./update_gta_test_items.sh ../../${{ github.run_id }}/level-zero-tests-GTA/${CI_BRANCH}  ${{ secrets.LZLC_GTA_TEST_ITEM_UPDATE_TOKEN }} ${GITHASH}
           popd
         shell: bash
 
