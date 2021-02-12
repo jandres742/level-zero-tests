@@ -9,7 +9,9 @@ pushd ../../dave-compute-library
 # create a L0 test item branch
 git branch L0_Test_Item_UPDATE_$GITHASH
 git checkout L0_Test_Item_UPDATE_$GITHASH
-git rebase origin/master
+git remote add parent https://$2@github.com/intel-innersource/drivers.gpu.validation.dave-compute-library.git
+git fetch parent
+git rebase parent/master
 popd
 
 # Build the L0 Loader and NULL Driver
@@ -34,7 +36,10 @@ if [ $RESULT -eq 0 ]; then
     pushd ../../dave-compute-library
     git add -A
     git commit -a -m "L0 Test Item Update $GITHASH" -s
-    git push origin L0_Test_Item_UPDATE_$GITHASH -f
+    RESULT=$?
+    if [ $RESULT -eq 0 ]; then
+        git push origin L0_Test_Item_UPDATE_$GITHASH -f
+    fi
     echo Generate Json Successfully created
 else
     echo Generate Json Failed
