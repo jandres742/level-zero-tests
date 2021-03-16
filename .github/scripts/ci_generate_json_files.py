@@ -123,8 +123,12 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
         data["attributes"].update(smoke_timeout)
 
     if not (os.path.exists(json_name)):
+        print("test case " + test_name + " is new\n")
         if test_feature_tag == "gta.planning.attributes.tags.LEVEL_ZERO_BASIC_FEATURES" and not allow_setting_basic_features:
-            return
+            advanced_tag = {"gta.planning.attributes.tags.LEVEL_ZERO_ADVANCED_FEATURES": "true"}
+            basic_tag = {"gta.planning.attributes.tags.LEVEL_ZERO_BASIC_FEATURES": "false"}
+            data["attributes"].update(advanced_tag)
+            data["attributes"].update(basic_tag)
         with open(json_name, "w") as write_file:
             json.dump(data, write_file, indent=4)
     elif (os.path.exists(json_name)):
@@ -334,7 +338,7 @@ def assign_gta_test_feature(test_binary: str, test_name: str):
             test_feature = "Peer-To-Peer"
         if test_binary == "test_device" and test_name.find("CanAccessPeer")!= -1:
             test_feature = "Peer-To-Peer"
-        if test_binary == "test_p2p":
+        if test_binary.find("p2p")!= -1:
             test_feature = "Peer-To-Peer"
         if test_binary == "test_usm":
             test_feature = "Unified Shared Memory"
