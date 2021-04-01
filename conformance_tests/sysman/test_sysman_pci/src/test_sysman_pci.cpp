@@ -54,12 +54,21 @@ TEST_F(PciModuleTest,
     EXPECT_LT(pciProps.address.device, MAX_DEVICES_PER_BUS);
     EXPECT_GE(pciProps.address.function, 0);
     EXPECT_LT(pciProps.address.function, MAX_FUNCTIONS_PER_DEVICE);
-    EXPECT_GE(pciProps.maxSpeed.gen, 0);
-    EXPECT_LE(pciProps.maxSpeed.gen, PCI_SPEED_MAX_LINK_GEN);
-    EXPECT_GE(pciProps.maxSpeed.width, 0);
-    EXPECT_LE(pciProps.maxSpeed.width, PCI_SPEED_MAX_LANE_WIDTH);
-    EXPECT_GE(pciProps.maxSpeed.maxBandwidth, 0);
-    EXPECT_LE(pciProps.maxSpeed.maxBandwidth, UINT64_MAX);
+    if (pciProps.maxSpeed.gen >= 0) {
+      EXPECT_LE(pciProps.maxSpeed.gen, PCI_SPEED_MAX_LINK_GEN);
+    } else {
+      LOG_INFO << "gen property is unknown";
+    }
+    if (pciProps.maxSpeed.width >= 0) {
+      EXPECT_LE(pciProps.maxSpeed.width, PCI_SPEED_MAX_LANE_WIDTH);
+    } else {
+      LOG_INFO << "width property is unknown";
+    }
+    if (pciProps.maxSpeed.maxBandwidth >= 0) {
+      EXPECT_LE(pciProps.maxSpeed.maxBandwidth, UINT64_MAX);
+    } else {
+      LOG_INFO << "Max Bandwidth property is unknown";
+    }
   }
 }
 TEST_F(
