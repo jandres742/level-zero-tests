@@ -107,7 +107,7 @@ runs:
         [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
         echo ${BUILD_IMAGE}:${GITHUB_RUN_ID}
 
-        for type in perf conformance negative layer; do
+        for type in perf conformance negative layer stress; do
           mkdir -p ./output/${CI_BRANCH}/${{ inputs.platform }}/install/level-zero-tests-${type}
           docker exec ${CONTAINER_ID} sh -c "cmake -G Ninja -D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache -D CMAKE_BUILD_TYPE=Release -D GROUP="/${type}_tests" -D CMAKE_PREFIX_PATH=/project/${{ inputs.platform }}/master/${{ inputs.platform }}/install/ -D REQUIRE_OPENCL_BENCHMARKS=yes -D CMAKE_INSTALL_PREFIX=/project/level-zero-tests/${CI_BRANCH}/${{ inputs.platform }}/install/level-zero-tests-${type} /project"
           docker exec ${CONTAINER_ID} sh -c "cmake --build . --target install"

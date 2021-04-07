@@ -53,7 +53,7 @@ runs:
         echo ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID}
 
         mkdir .\build -f
-        $tests = "perf", "conformance", "negative", "layer"
+        $tests = "perf", "conformance", "negative", "layer", "stress"
         Foreach ($type in $tests)
         {
           mkdir .\level-zero-tests\${env:CI_BRANCH}\windows\install\level-zero-tests-${type}
