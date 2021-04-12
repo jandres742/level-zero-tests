@@ -290,7 +290,7 @@ jobs:
           $env:Target_Branch_Name = Split-Path ${env:GITHUB_REF} -leaf
           if ($env:PR_BRANCH -eq $null) {$env:CI_BRANCH = "${env:Target_Branch_Name}"} else {$env:CI_BRANCH = "${{ github.head_ref }}"}
 
-          $tests = "perf", "conformance", "negative"
+          $tests = "perf", "conformance", "negative", "stress"
           Foreach ($type in $tests)
           {
             mkdir -p ./level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win -f
@@ -320,7 +320,7 @@ jobs:
         if ($env:PR_BRANCH -eq $null) {$env:CI_BRANCH = "${env:Target_Branch_Name}"} else {$env:CI_BRANCH = "${{ github.head_ref }}"}
         $env:SHORT_SHA = git rev-parse --short ${env:GITHUB_SHA}
         cd ../
-        $tests = "perf", "conformance", "negative", "layer"
+        $tests = "perf", "conformance", "negative", "layer", "stress"
         Foreach ($type in $tests)
         {
           .\devtool\dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory  ${{ secrets.LZ_DEPLOY_ARTIFACTORY_PREFIX }}/level-zero-tests/${env:CI_BRANCH}/windows/install level-zero-tests-${type} ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} ./${{ github.run_id }}/level-zero-tests/${env:CI_BRANCH}/windows/install/level-zero-tests-${type}
@@ -343,7 +343,7 @@ jobs:
         if ($env:PR_BRANCH -eq $null) {$env:CI_BRANCH = "${env:Target_Branch_Name}"} else {$env:CI_BRANCH = "${{ github.head_ref }}"}
         $env:SHORT_SHA = git rev-parse --short ${env:GITHUB_SHA}
         cd ../
-        $tests = "perf", "conformance", "negative"
+        $tests = "perf", "conformance", "negative", "stress"
         Foreach ($type in $tests)
         {
           .\devtool\dt asset download --root-url https://gfx-assets.fm.intel.com/artifactory --dest-dir ./${{ github.run_id }}/level-zero-tests-legacygta/${env:CI_BRANCH} ${{ secrets.LZ_DEPLOY_ARTIFACTORY_PREFIX }}/level-zero-tests-legacygta-linux-staging/${env:CI_BRANCH} level-zero-tests-${type}-u1804+win ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID}
