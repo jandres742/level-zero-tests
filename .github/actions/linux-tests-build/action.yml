@@ -10,11 +10,8 @@ inputs:
   platform:
     description: 'Build Platform'
     required: true
-  infra_user:
-    description: 'Github Infrastructure user'
-    required: true
-  infra_password:
-    description: 'Github Infrastructure password'
+  infra_token:
+    description: 'Github Infrastructure token'
     required: true
   LZ_ARTIFACTORY_PREFIX:
     description: 'Level Zero Artifactory Prefix'
@@ -45,7 +42,7 @@ runs:
         docker rm ${CONTAINER_ID}
 
         rm -rf ./devops
-        git clone https://${{ inputs.infra_user }}:${{ inputs.infra_password }}@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git ./devops
+        git clone https://${{ inputs.infra_token }}@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git ./devops
         rm -rf ./docker
         mkdir -p ./docker
         test -e ./docker/build-ubuntu.Dockerfile || cp -v ./devops/supplemental/level-zero-tests/docker/build-ubuntu.Dockerfile ./docker/build-ubuntu.Dockerfile

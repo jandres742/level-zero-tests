@@ -10,11 +10,8 @@ inputs:
   platform:
     description: 'Build Platform'
     required: true
-  infra_user:
-    description: 'Github Infrastructure user'
-    required: true
-  infra_password:
-    description: 'Github Infrastructure password'
+  infra_token:
+    description: 'Github Infrastructure token'
     required: true
   VS_PRODUCT_KEY:
     description: 'Visual Studio Product Key'
@@ -36,7 +33,7 @@ runs:
         if ($env:PR_BRANCH -eq $null) {$env:CI_BRANCH = "${env:Target_Branch_Name}"} else {$env:CI_BRANCH = "${{ github.head_ref }}"}
         $env:BUILD_IMAGE = "${{ inputs.registry_host }}/${{ inputs.registry_namespace }}/ci-$env:CI_BRANCH-${{ inputs.platform }}"
 
-        git clone https://"${{ inputs.infra_user }}":"${{ inputs.infra_password }}"@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git ./devops
+        git clone https://"${{ inputs.infra_token }}"@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git ./devops
         if ((test-path .\docker\build-windows.Dockerfile) -bxor 1) {xcopy .\devops\supplemental\level-zero-tests\docker\build-windows.Dockerfile .\docker\build-windows.Dockerfile*}
         cat ./docker/build-windows.Dockerfile | docker build --build-arg ${env:http_proxy} --build-arg ${env:https_proxy} --build-arg VS_PRODUCT_KEY="${{ inputs.VS_PRODUCT_KEY }}" --build-arg VS_EDITION="${{ inputs.VS_EDITION }}" -t ${env:BUILD_IMAGE}:${env:CI_BRANCH} -t ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID} -
 

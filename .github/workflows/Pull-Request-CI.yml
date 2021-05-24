@@ -51,8 +51,7 @@ jobs:
           registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
           registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
           platform: ubuntu-bionic
-          infra_user: ${{ secrets.LZ_DEVOPS_CLONE_USER }}
-          infra_password: ${{ secrets.LZ_DEVOPS_CLONE_PASSWORD }}
+          infra_token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
           LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
           docker_image_version: bionic-20200807
 
@@ -68,8 +67,7 @@ jobs:
           registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
           registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
           platform: ubuntu-eoan
-          infra_user: ${{ secrets.LZ_DEVOPS_CLONE_USER }}
-          infra_password: ${{ secrets.LZ_DEVOPS_CLONE_PASSWORD }}
+          infra_token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
           LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
           docker_image_version: eoan-20200114
 
@@ -139,8 +137,7 @@ jobs:
           registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
           registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
           platform: windows
-          infra_user: ${{ secrets.LZ_DEVOPS_CLONE_USER }}
-          infra_password: ${{ secrets.LZ_DEVOPS_CLONE_PASSWORD }}
+          infra_token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
           VS_PRODUCT_KEY: ${{ secrets.LZ_VS_PRODUCT_KEY }}
           VS_EDITION: ${{ secrets.LZ_VS_EDITION }}
           LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
