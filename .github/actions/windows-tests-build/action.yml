@@ -55,7 +55,15 @@ runs:
         {
           mkdir .\level-zero-tests\${env:CI_BRANCH}\windows\install\level-zero-tests-${type}
           docker run --rm -v ${pwd}:C:\project -w C:\project\build -e CC=clcache -e CXX=clcache ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID} cmake -G Ninja -D REQUIRE_OPENCL_BENCHMARKS=yes -D GROUP="/${type}_tests" -D CMAKE_PREFIX_PATH="/boost;/zlib;/libpng;/opencl;C:\project\level-zero\windows\install\" -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=C:\project\level-zero-tests\${env:CI_BRANCH}\windows\install\level-zero-tests-${type} C:\project
+          if (!$?) {
+              write-output "Failed $type Tests config on Windows"
+              exit $?
+          }
           docker run --rm -v ${pwd}:C:\project -w C:\project\build -v C:\clcache:C:\clcache -e CLCACHE_DIR=C:\clcache ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID} cmake --build . --target install
+          if (!$?) {
+              write-output "Failed $type Tests build on Windows"
+              exit $?
+          }
           docker create --name ${env:GITHUB_RUN_ID} ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID}
           docker cp ${env:GITHUB_RUN_ID}:C:\libpng\bin\libpng16.dll .\level-zero-tests\${env:CI_BRANCH}\windows\install\level-zero-tests-${type}
           docker cp ${env:GITHUB_RUN_ID}:C:\zlib\bin\zlib1.dll .\level-zero-tests\${env:CI_BRANCH}\windows\install\level-zero-tests-${type}
