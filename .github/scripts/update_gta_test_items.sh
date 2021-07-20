@@ -19,6 +19,7 @@ if [ -d "../../level_zero_loader" ]; then
     rm -rf ../../level_zero_loader
 fi
 git clone https://$2@github.com/intel-innersource/libraries.compute.oneapi.level-zero.loader.git ../../level_zero_loader
+apt-get update
 apt-get install build-essential cmake libpng16-16 -y
 pushd ../../level_zero_loader
 mkdir build
