@@ -60,8 +60,8 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             "owner": "nrspruit",
             "plugin": "test_compute",
             "arguments": "levelzero_conformance_tests " + test_filter,
-            "assets": [
-                "gfx-compute-assets/level-zero-tests-legacyformat-conformance"
+            "resources": [
+                "level-zero-conformance"
             ],
             "metadata": {
                 "required_capabilities": {
@@ -86,8 +86,8 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             "owner": "nrspruit",
             "plugin": "test_compute",
             "arguments": "levelzero_conformance_tests " + test_filter,
-            "assets": [
-                "gfx-compute-assets/level-zero-tests-legacyformat-negative"
+            "resources": [
+                "level-zero-negative"
             ],
             "attributes": {
                 "Component": "Level Zero",
@@ -105,8 +105,8 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             "owner": "nrspruit",
             "plugin": "test_compute",
             "arguments": "levelzero_conformance_tests " + test_filter,
-            "assets": [
-                "gfx-compute-assets/level-zero-tests-legacyformat-stress"
+            "resources": [
+                "level-zero-stress"
             ],
             "attributes": {
                 "Component": "Level Zero",
@@ -124,8 +124,8 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             "owner": "nrspruit",
             "plugin": "test_compute",
             "arguments": "levelzero_conformance_tests " + test_filter,
-            "assets": [
-                "gfx-compute-assets/level-zero-tests-legacyformat-conformance"
+            "resources": [
+                "level-zero-conformance"
             ],
             "attributes": {
                 "Component": "Level Zero",
