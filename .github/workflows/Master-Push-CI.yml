@@ -294,7 +294,7 @@ jobs:
             cp -Force -r ./level-zero-tests/${env:CI_BRANCH}/windows/install/level-zero-tests-${type} ./level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win/${type}-tests-win64
             if ( $type -eq "conformance" )
             {
-              cp -r ./level-zero-tests/${env:CI_BRANCH}/windows/install/level-zero-tests-layer/* ./level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win/${type}-tests-win64
+              cp -Force -r ./level-zero-tests/${env:CI_BRANCH}/windows/install/level-zero-tests-layer/* ./level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win/${type}-tests-win64
             }
             pushd ./level-zero-tests-legacygta/${env:CI_BRANCH}/level-zero-tests-${type}-u1804+win
             Compress-Archive -Force -Path ${type}-tests-win64 -DestinationPath ${type}-tests-win64.zip
