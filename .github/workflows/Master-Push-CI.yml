@@ -102,6 +102,23 @@ jobs:
           LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
           docker_image_version: eoan-20200114
 
+  level-zero-tests-ubuntu-arm-install:
+    runs-on: github-kubernetes-runner
+    needs: [LINUX_CI_INIT]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - uses: ./.github/actions/linux-tests-build
+        with:
+          DISTRO: ubuntu-arm
+          registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
+          registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
+          platform: ubuntu-arm
+          infra_token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
+          LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
+          docker_image_version: 20_04_arm
+
   level-zero-tests-deploy-linux:
     runs-on: github-kubernetes-runner
     needs: [level-zero-tests-legacygta-pre-deploy-linux]
@@ -121,7 +138,7 @@ jobs:
           cd ../
           docker pull ${DEVTOOL_DOCKER}
           CONTAINER_ID=`docker run -t -d --entrypoint /bin/bash ${DEVTOOL_DOCKER}`
-          for BUILD_PLATFORM in ubuntu-bionic ubuntu-eoan; do
+          for BUILD_PLATFORM in ubuntu-bionic ubuntu-eoan ubuntu-arm; do
             for type in perf conformance negative layer stress; do
               docker exec ${CONTAINER_ID} mkdir -p ./level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}
               docker cp ./output/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/ ${CONTAINER_ID}:/level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/.
@@ -134,7 +151,8 @@ jobs:
   level-zero-tests-legacygta-pre-deploy-linux:
     runs-on: github-kubernetes-runner
     needs: [level-zero-tests-ubuntu-bionic-install,
-            level-zero-tests-ubuntu-eoan-install]
+            level-zero-tests-ubuntu-eoan-install,
+            level-zero-tests-ubuntu-arm-install]
     env:
           http_proxy: http://proxy-chain.intel.com:911
           https_proxy: http://proxy-chain.intel.com:911
