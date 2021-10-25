@@ -48,6 +48,7 @@ jobs:
     steps:
       - uses: ./.github/actions/linux-tests-build
         with:
+          DISTRO: ubuntu
           registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
           registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
           platform: ubuntu-bionic
@@ -64,6 +65,7 @@ jobs:
     steps:
       - uses: ./.github/actions/linux-tests-build
         with:
+          DISTRO: ubuntu
           registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
           registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
           platform: ubuntu-eoan

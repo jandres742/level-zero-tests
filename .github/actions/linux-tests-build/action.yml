@@ -1,6 +1,9 @@
 name: 'Level Zero Linux Tests Build'
 description: 'Level Zero Linux Tests Build'
 inputs:
+  DISTRO:
+    description: 'Target Distro for Build'
+    required: true
   registry_host:
     description: 'Registry Host'
     required: true
@@ -45,7 +48,7 @@ runs:
         git clone https://${{ inputs.infra_token }}@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git ./devops
         rm -rf ./docker
         mkdir -p ./docker
-        test -e ./docker/build-ubuntu.Dockerfile || cp -v ./devops/supplemental/level-zero-tests/docker/build-ubuntu.Dockerfile ./docker/build-ubuntu.Dockerfile
+        test -e ./docker/build-${{ inputs.DISTRO }}.Dockerfile || cp -v ./devops/supplemental/level-zero-tests/docker/build-${{ inputs.DISTRO }}.Dockerfile ./docker/build-${{ inputs.DISTRO }}.Dockerfile
 
         BUILD_IMAGE=${{ inputs.registry_host }}/${{ inputs.registry_namespace }}/ci-${GITHUB_REPOSITORY}-${{ inputs.platform }}
         PR_BRANCH="${{ github.head_ref }}"
@@ -58,9 +61,9 @@ runs:
 
         ls -laR level-zero/
 
-        echo "ADD level-zero-tests/ /project" >> ./docker/build-ubuntu.Dockerfile
-        echo "ADD level-zero/ /project" >> ./docker/build-ubuntu.Dockerfile
-        cp ./docker/build-ubuntu.Dockerfile Dockerfile
+        echo "ADD level-zero-tests/ /project" >> ./docker/build-${{ inputs.DISTRO }}.Dockerfile
+        echo "ADD level-zero/ /project" >> ./docker/build-${{ inputs.DISTRO }}.Dockerfile
+        cp ./docker/build-${{ inputs.DISTRO }}.Dockerfile Dockerfile
         docker build \
           --cache-from ${BUILD_IMAGE}:${GITHUB_RUN_ID} \
           --cache-from ${BUILD_IMAGE}:${CI_BRANCH} \
