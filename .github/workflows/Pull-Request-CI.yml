@@ -73,7 +73,7 @@ jobs:
           LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
           docker_image_version: eoan-20200114
 
-  level-zero-tests-ubuntu-arm-install:
+  level-zero-tests-ubuntu_arm64-install:
     runs-on: github-kubernetes-runner
     needs: [LINUX_CI_INIT]
     env:
@@ -82,10 +82,10 @@ jobs:
     steps:
       - uses: ./.github/actions/linux-tests-build
         with:
-          DISTRO: ubuntu-arm
+          DISTRO: ubuntu_arm64
           registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
           registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
-          platform: ubuntu-arm
+          platform: ubuntu_arm64
           infra_token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
           LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
           docker_image_version: 20_04_arm
@@ -93,7 +93,7 @@ jobs:
 # After the build is complete, if all the install steps completed successfully, then we need to cleanup the runid folder created
   level-zero-tests-linux-build-Artifact-cleanup:
     runs-on: github-kubernetes-runner
-    needs: [level-zero-tests-ubuntu-bionic-install, level-zero-tests-ubuntu-eoan-install, level-zero-tests-ubuntu-arm-install]
+    needs: [level-zero-tests-ubuntu-bionic-install, level-zero-tests-ubuntu-eoan-install, level-zero-tests-ubuntu_arm64-install]
     if: always()
     steps:
       - name: Removing Github Runner Artifacts

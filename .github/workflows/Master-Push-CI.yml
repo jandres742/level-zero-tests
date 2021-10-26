@@ -102,7 +102,7 @@ jobs:
           LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
           docker_image_version: eoan-20200114
 
-  level-zero-tests-ubuntu-arm-install:
+  level-zero-tests-ubuntu_arm64-install:
     runs-on: github-kubernetes-runner
     needs: [LINUX_CI_INIT]
     env:
@@ -111,10 +111,10 @@ jobs:
     steps:
       - uses: ./.github/actions/linux-tests-build
         with:
-          DISTRO: ubuntu-arm
+          DISTRO: ubuntu_arm64
           registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
           registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
-          platform: ubuntu-arm
+          platform: ubuntu_arm64
           infra_token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
           LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
           docker_image_version: 20_04_arm
@@ -138,7 +138,7 @@ jobs:
           cd ../
           docker pull ${DEVTOOL_DOCKER}
           CONTAINER_ID=`docker run -t -d --entrypoint /bin/bash ${DEVTOOL_DOCKER}`
-          for BUILD_PLATFORM in ubuntu-bionic ubuntu-eoan ubuntu-arm; do
+          for BUILD_PLATFORM in ubuntu-bionic ubuntu-eoan ubuntu_arm64; do
             for type in perf conformance negative layer stress; do
               docker exec ${CONTAINER_ID} mkdir -p ./level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}
               docker cp ./output/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/ ${CONTAINER_ID}:/level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/.
@@ -152,7 +152,7 @@ jobs:
     runs-on: github-kubernetes-runner
     needs: [level-zero-tests-ubuntu-bionic-install,
             level-zero-tests-ubuntu-eoan-install,
-            level-zero-tests-ubuntu-arm-install]
+            level-zero-tests-ubuntu_arm64-install]
     env:
           http_proxy: http://proxy-chain.intel.com:911
           https_proxy: http://proxy-chain.intel.com:911

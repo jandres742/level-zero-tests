@@ -107,7 +107,7 @@ runs:
         [[ ! -z "$PR_BRANCH" ]] && CI_BRANCH=$PR_BRANCH || CI_BRANCH=`basename ${GITHUB_REF}`
         echo ${BUILD_IMAGE}:${GITHUB_RUN_ID}
 
-        if [ "${{ inputs.DISTRO }}" == "ubuntu-arm" ]; then
+        if [ "${{ inputs.DISTRO }}" == "ubuntu_arm64" ]; then
           echo "arm64 install"
           EXTRA_ARGS="-D CMAKE_C_COMPILER=aarch64-linux-gnu-gcc-10 -D CMAKE_CXX_COMPILER=aarch64-linux-gnu-g++-10 -D CMAKE_SYSTEM_PROCESSOR=aarch64"
         else
