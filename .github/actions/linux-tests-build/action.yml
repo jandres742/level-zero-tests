@@ -45,7 +45,7 @@ runs:
         docker rm ${CONTAINER_ID}
 
         rm -rf ./devops
-        git clone https://${{ inputs.infra_token }}@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git ./devops
+        git clone https://${{ inputs.infra_token }}@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git --branch lisanna/rhel_sles_tests ./devops
         rm -rf ./docker
         mkdir -p ./docker
         test -e ./docker/build-${{ inputs.DISTRO }}.Dockerfile || cp -v ./devops/supplemental/level-zero-tests/docker/build-${{ inputs.DISTRO }}.Dockerfile ./docker/build-${{ inputs.DISTRO }}.Dockerfile
@@ -83,10 +83,15 @@ runs:
         cd ${{ github.run_id }}
         BUILD_IMAGE=${{ inputs.registry_host }}/${{ inputs.registry_namespace }}/ci-${GITHUB_REPOSITORY}-${{ inputs.platform }}
 
-        CONTAINER_ID=`docker run -t -d -w /project --entrypoint /bin/bash ${BUILD_IMAGE}:${GITHUB_RUN_ID}`
-        docker exec ${CONTAINER_ID} /project/clang-format-patch.sh /project > clang_format_results.txt
-        docker stop $CONTAINER_ID
-        docker rm $CONTAINER_ID
+        docker-run() {
+            docker run --rm -w /project ${BUILD_IMAGE}:${GITHUB_RUN_ID} "$@"
+        }
+
+        if ! docker-run which clang-format-7; then
+            echo "::warning Skipping clang format check, clang-format-7 not found"
+            exit 0
+        fi
+        docker-run /project/clang-format-patch.sh /project > clang_format_results.txt
         if [ -s ./clang_format_results.txt ]
         then
                 echo "Clang Format Check failed"

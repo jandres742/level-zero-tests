@@ -90,10 +90,44 @@ jobs:
           LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
           docker_image_version: 20_04_arm
 
+  level-zero-tests-rhel-8_4-install:
+    runs-on: github-kubernetes-runner
+    needs: [LINUX_CI_INIT]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - uses: ./.github/actions/linux-tests-build
+        with:
+          DISTRO: rhel
+          registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
+          registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
+          platform: rhel-8_4
+          infra_token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
+          LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
+          docker_image_version: 8.4
+
+  level-zero-tests-sles-15_2-install:
+    runs-on: github-kubernetes-runner
+    needs: [LINUX_CI_INIT]
+    env:
+          http_proxy: http://proxy-chain.intel.com:911
+          https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - uses: ./.github/actions/linux-tests-build
+        with:
+          DISTRO: sles
+          registry_host: ${{ secrets.LZ_REGISTRY_HOST }}
+          registry_namespace: ${{ secrets.LZ_REGISTRY_NAMESPACE }}
+          platform: sles-15_2
+          infra_token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
+          LZ_ARTIFACTORY_PREFIX: ${{ secrets.LZ_DEPENDENCY_ARTIFACTORY_PREFIX }}
+          docker_image_version: 15.2
+
 # After the build is complete, if all the install steps completed successfully, then we need to cleanup the runid folder created
   level-zero-tests-linux-build-Artifact-cleanup:
     runs-on: github-kubernetes-runner
-    needs: [level-zero-tests-ubuntu-bionic-install, level-zero-tests-ubuntu-eoan-install, level-zero-tests-ubuntu_arm64-install]
+    needs: [level-zero-tests-ubuntu-bionic-install, level-zero-tests-ubuntu-eoan-install, level-zero-tests-ubuntu_arm64-install, level-zero-tests-sles-15_2-install, level-zero-tests-rhel-8_4-install]
     if: always()
     steps:
       - name: Removing Github Runner Artifacts
