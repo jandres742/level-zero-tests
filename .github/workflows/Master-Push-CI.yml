@@ -177,7 +177,7 @@ jobs:
           cd ../
           docker pull ${DEVTOOL_DOCKER}
           CONTAINER_ID=`docker run -t -d --entrypoint /bin/bash ${DEVTOOL_DOCKER}`
-          for BUILD_PLATFORM in ubuntu-bionic ubuntu-eoan ubuntu_arm64 rhel-8.4 sles-15.2; do
+          for BUILD_PLATFORM in ubuntu-bionic ubuntu-eoan ubuntu_arm64 rhel-8_4 sles-15_2; do
             for type in perf conformance negative layer stress; do
               docker exec ${CONTAINER_ID} mkdir -p ./level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}
               docker cp ./output/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/ ${CONTAINER_ID}:/level-zero-tests/${CI_BRANCH}/${BUILD_PLATFORM}/install/level-zero-tests-${type}/.
