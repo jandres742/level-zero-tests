@@ -13,7 +13,7 @@ jobs:
   cherry-pick-upstream:
     env: 
       PUBLIC_REPO_URL: https://github.com/oneapi-src/level-zero-tests
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     if: github.ref == 'refs/heads/master' && !startsWith(github.event.head_commit.message, '[CI]')
     steps:
     - name: Removing Github Runner Artifacts from previous run
@@ -42,7 +42,7 @@ jobs:
 # Checkout the current git repo at the branch and commit ref along with all tags
   LINUX_CI_INIT:
 # The tagged runner that the task will be running on
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
 
     steps:
       - name: Cleanup Github run artifacts
@@ -69,7 +69,7 @@ jobs:
           path: ${{ github.run_id }}/level-zero-tests
 
   level-zero-tests-ubuntu-bionic-install:
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     needs: [LINUX_CI_INIT]
     env:
           http_proxy: http://proxy-chain.intel.com:911
@@ -86,7 +86,7 @@ jobs:
           docker_image_version: bionic-20200807
 
   level-zero-tests-ubuntu-eoan-install:
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     needs: [LINUX_CI_INIT]
     env:
           http_proxy: http://proxy-chain.intel.com:911
@@ -103,7 +103,7 @@ jobs:
           docker_image_version: eoan-20200114
 
   level-zero-tests-ubuntu_arm64-install:
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     needs: [LINUX_CI_INIT]
     env:
           http_proxy: http://proxy-chain.intel.com:911
@@ -120,7 +120,7 @@ jobs:
           docker_image_version: 20_04_arm
 
   level-zero-tests-rhel-8_4-install:
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     needs: [LINUX_CI_INIT]
     env:
           http_proxy: http://proxy-chain.intel.com:911
@@ -137,7 +137,7 @@ jobs:
           docker_image_version: 8.4
 
   level-zero-tests-sles-15_2-install:
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     needs: [LINUX_CI_INIT]
     env:
           http_proxy: http://proxy-chain.intel.com:911
@@ -154,7 +154,7 @@ jobs:
           docker_image_version: 15.2
 
   level-zero-tests-deploy-linux:
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     needs: [level-zero-tests-legacygta-pre-deploy-linux,
             level-zero-tests-ubuntu-bionic-install,
             level-zero-tests-ubuntu-eoan-install,
@@ -188,7 +188,7 @@ jobs:
           docker rm ${CONTAINER_ID}
 
   level-zero-tests-legacygta-pre-deploy-linux:
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     needs: [level-zero-tests-ubuntu-bionic-install]
     env:
           http_proxy: http://proxy-chain.intel.com:911
@@ -235,7 +235,7 @@ jobs:
 
 # After the build is complete, if all CI publishing is complete, then we need to add the new test items to GTA.
   level-zero-tests-linux-GTA-Test-Item-Publishing:
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     needs: [level-zero-tests-deploy-linux,
             level-zero-tests-windows-deploy,
             level-zero-tests-deploy-legacygta]
@@ -264,7 +264,7 @@ jobs:
 
 # After the build is complete, if all the install steps completed successfully, then we need to cleanup the runid folder created
   level-zero-tests-linux-build-Artifact-cleanup:
-    runs-on: github-kubernetes-runner
+    runs-on: [self-hosted, linux, switchover]
     needs: [level-zero-tests-linux-GTA-Test-Item-Publishing]
     if: always()
     steps:

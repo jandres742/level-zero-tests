@@ -45,7 +45,7 @@ runs:
         docker rm ${CONTAINER_ID}
 
         rm -rf ./devops
-        git clone https://${{ inputs.infra_token }}@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git --branch lisanna/rhel_sles_tests ./devops
+        git clone https://${{ inputs.infra_token }}@github.com/intel-innersource/libraries.compute.oneapi.level-zero.infrastructure.git ./devops
         rm -rf ./docker
         mkdir -p ./docker
         test -e ./docker/build-${{ inputs.DISTRO }}.Dockerfile || cp -v ./devops/supplemental/level-zero-tests/docker/build-${{ inputs.DISTRO }}.Dockerfile ./docker/build-${{ inputs.DISTRO }}.Dockerfile
@@ -65,18 +65,12 @@ runs:
         echo "ADD level-zero/ /project" >> ./docker/build-${{ inputs.DISTRO }}.Dockerfile
         cp ./docker/build-${{ inputs.DISTRO }}.Dockerfile Dockerfile
         docker build \
-          --cache-from ${BUILD_IMAGE}:${GITHUB_RUN_ID} \
-          --cache-from ${BUILD_IMAGE}:${CI_BRANCH} \
-          --cache-from ${BUILD_IMAGE}:master \
           --build-arg BUILDKIT_INLINE_CACHE=1 \
           --build-arg http_proxy \
           --build-arg https_proxy \
           --build-arg IMAGE_VERSION=${{ inputs.docker_image_version }} \
-          -t ${BUILD_IMAGE}:${CI_BRANCH} \
           -t ${BUILD_IMAGE}:${GITHUB_RUN_ID} \
           .
-        docker push ${BUILD_IMAGE}:${CI_BRANCH}
-        docker push ${BUILD_IMAGE}:${GITHUB_RUN_ID}
       shell: bash
       name: Setup Dependencies
     - run: |
