@@ -1,0 +1,272 @@
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+env:
+  LZ_DEPLOY_ARTIFACTORY_PREFIX: gfx-compute-assets
+  LZ_REGISTRY_HOST: amr-registry.caas.intel.com
+  LZ_REGISTRY_USER: sys_lzdev
+  http_proxy: http://proxy-chain.intel.com:911
+  https_proxy: http://proxy-chain.intel.com:911
+  CCACHE_DIR: /home/sdp/ccache
+
+jobs:
+  cherry-pick-upstream:
+    runs-on: [self-hosted, linux]
+    if: github.ref == 'refs/heads/master' && !startsWith(github.event.head_commit.message, '[CI]')
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        clean: true
+        token: ${{ secrets.LZ_CHERRYPICK_TOKEN }}
+    - name: Cherry-pick to upstream
+      run: |
+        git config user.email "brandon.yates@intel.com"
+        git config user.name "Brandon Yates"
+        git checkout upstream
+        git cherry-pick ${{ github.sha }}
+        git push origin upstream
+
+# LINUX CI
+
+  build-linux:
+    runs-on: [self-hosted, linux]
+    strategy:
+      matrix:
+        include:
+          - BUILD_PLATFORM: ubuntu-bionic
+            DISTRO: ubuntu
+            BUILD_IMAGE_DOCKERFILE_IMAGE_VERSION: bionic-20200807
+          - BUILD_PLATFORM: ubuntu-eoan
+            DISTRO: ubuntu
+            BUILD_IMAGE_DOCKERFILE_IMAGE_VERSION: eoan-20200114
+          - BUILD_PLATFORM: ubuntu_arm64
+            DISTRO: ubuntu_arm64
+            BUILD_IMAGE_DOCKERFILE_IMAGE_VERSION: 20_04_arm
+          - BUILD_PLATFORM: rhel-8_4
+            DISTRO: rhel
+            BUILD_IMAGE_DOCKERFILE_IMAGE_VERSION: 8.4
+          - BUILD_PLATFORM: sles-15_2
+            DISTRO: sles
+            BUILD_IMAGE_DOCKERFILE_IMAGE_VERSION: 15.2
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          clean: true
+          submodules: recursive
+      - name: Build tests
+        run: |
+          set -x
+          BUILD_IMAGE=ci-${GITHUB_REPOSITORY}-${{ matrix.BUILD_PLATFORM }}
+
+          dt asset download \
+            --root-url https://gfx-assets.fm.intel.com/artifactory \
+            --dest-dir ./level-zero \
+            ${LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero/master/${{ matrix.BUILD_PLATFORM }}/install \
+            level-zero
+
+          retries=0
+          set +e
+          until [ "$retries" -ge 3 ]; do
+              docker login -u ${LZ_REGISTRY_USER} -p ${{ secrets.LZ_REGISTRY_PASSWORD }} ${LZ_REGISTRY_HOST} && break
+              retries=$((retries+1))
+              sleep 1
+          done
+          set -e
+
+          docker build \
+            --build-arg http_proxy \
+            --build-arg https_proxy \
+            --build-arg IMAGE_VERSION=${{ matrix.BUILD_IMAGE_DOCKERFILE_IMAGE_VERSION }} \
+            -t ${BUILD_IMAGE}:${GITHUB_RUN_ID} \
+            - < .github/docker/build-${{ matrix.DISTRO }}.Dockerfile
+          
+          docker-run() {
+              docker run \
+                --rm \
+                --user $(id -u):$(id -g) \
+                -e CCACHE_BASEDIR=/project \
+                -e CCACHE_DIR=/ccache \
+                -v ${CCACHE_DIR}:/ccache \
+                -v $PWD:/project \
+                -w /project/build \
+                ${BUILD_IMAGE}:${GITHUB_RUN_ID} \
+                "$@"
+          }
+
+          mkdir build
+
+          if ! docker-run which clang-format-7; then
+              echo "::warning::Skipping clang format check, clang-format-7 not found"
+          else
+              docker-run /project/clang-format-patch.sh /project > clang_format_results.txt
+              if [ -s ./clang_format_results.txt ]
+              then
+                      echo "Clang Format Check failed"
+                      cat ./clang_format_results.txt
+                      exit 1
+              else
+                      echo "Clang Format Check Succeeded"
+              fi
+          fi
+
+          for type in perf conformance negative layer stress; do
+              docker-run \
+                cmake \
+                  -G Ninja \
+                  $(if [ ${{ matrix.DISTRO }} == ubuntu_arm64 ]; then echo \
+                  -D CMAKE_C_COMPILER=aarch64-linux-gnu-gcc-10 \
+                  -D CMAKE_CXX_COMPILER=aarch64-linux-gnu-g++-10 \
+                  -D CMAKE_SYSTEM_PROCESSOR=aarch64; fi) \
+                  -D CMAKE_C_COMPILER_LAUNCHER=ccache \
+                  -D CMAKE_CXX_COMPILER_LAUNCHER=ccache \
+                  -D CMAKE_BUILD_TYPE=Release \
+                  -D GROUP="/${type}_tests" \
+                  -D CMAKE_PREFIX_PATH=/project/level-zero \
+                  -D REQUIRE_OPENCL_BENCHMARKS=yes \
+                  -D CMAKE_INSTALL_PREFIX=/project/level-zero-tests-${type} \
+                  /project
+              docker-run cmake --build . --target install
+          done
+      - name: Publish tests
+        if: github.event_name == 'push'
+        run: |
+          set -x
+          SHORT_SHA=`git rev-parse --short=7 ${GITHUB_SHA}`
+
+          for type in perf conformance negative layer stress; do
+              dt asset publish \
+                --root-url https://gfx-assets.fm.intel.com/artifactory \
+                ${LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests/master/${{ matrix.BUILD_PLATFORM }}/install \
+                level-zero-tests-${type} \
+                ${SHORT_SHA}-github_${GITHUB_RUN_ID} \
+                ./level-zero-tests-${type}
+          done
+      - name: Publish legacygta linux asset
+        if: github.event_name == 'push' && matrix.BUILD_PLATFORM == 'ubuntu-bionic'
+        run: |
+          set -x
+          SHORT_SHA=`git rev-parse --short=7 ${GITHUB_SHA}`
+
+          for type in perf conformance negative stress; do
+              mkdir level-zero-tests-${type}-u1804+win;
+              cp -r level-zero-tests-${type} level-zero-tests-${type}-u1804+win/${type}-tests-Linux;
+              if [ $type == "conformance" ];
+              then
+                cp -r level-zero-tests-layer/* level-zero-tests-${type}-u1804+win/${type}-tests-Linux;
+              fi;
+              pushd level-zero-tests-${type}-u1804+win;
+              tar -czvf ${type}-tests-Linux.tar.gz ${type}-tests-Linux;
+              rm -rf ${type}-tests-Linux;
+              popd;
+              dt asset publish \
+                --root-url https://gfx-assets.fm.intel.com/artifactory \
+                ${LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta-linux-staging/master \
+                level-zero-tests-${type}-u1804+win \
+                ${SHORT_SHA}-github_${GITHUB_RUN_ID} \
+                ./level-zero-tests-${type}-u1804+win
+          done
+
+# After the build is complete, if all CI publishing is complete, then we need to add the new test items to GTA.
+  GTA-Test-Item-Publishing:
+    runs-on: [self-hosted, linux]
+    needs: [build-linux, build-windows, deploy-legacygta]
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          clean: true
+      - name: Publishing New/Updated GTA Test Items
+        run: |
+          set -x
+          SHORT_SHA=`git rev-parse --short=7 ${GITHUB_SHA}`
+
+          mkdir ./level-zero-tests-GTA/;
+          for type in perf layer conformance negative; do
+              dt asset download \
+                --root-url https://gfx-assets.fm.intel.com/artifactory \
+                --dest-dir level-zero-tests-${type} \
+                ${LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests/master/ubuntu-bionic/install level-zero-tests-${type} ${SHORT_SHA}-github_${GITHUB_RUN_ID}
+              cp -r level-zero-tests-${type}/* ./level-zero-tests-GTA/;
+          done
+
+          cd .github/scripts/
+          ./update_gta_test_items.sh ../../level-zero-tests-GTA/ ${{ secrets.LZLC_GTA_TEST_ITEM_UPDATE_TOKEN }} ${SHORT_SHA}
+
+# Windows CI
+
+  build-windows:
+    runs-on: gklab-l0win-2
+    env:
+        http_proxy: http://proxy-chain.intel.com:911
+        https_proxy: http://proxy-chain.intel.com:911
+    steps:
+      - name: Setup GIT Support for tests checkout
+        run: |
+          git config --system core.longpaths true
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          clean: true
+          submodules: recursive
+      - name: Build tests
+        run: |
+          $env:BUILD_IMAGE = "ci-" + $env:GITHUB_REPOSITORY + "-windows"
+          cat .github/docker/build-windows.Dockerfile | docker build --build-arg ${env:http_proxy} --build-arg ${env:https_proxy} --build-arg VS_PRODUCT_KEY="${{ secrets.LZ_VS_PRODUCT_KEY }}" --build-arg VS_EDITION="${{ secrets.LZ_VS_EDITION }}" -t ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID} -
+
+          dt asset download --root-url https://gfx-assets.fm.intel.com/artifactory --dest-dir ./level-zero ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero/master/windows/install level-zero
+
+          mkdir .\build
+          $tests = "perf", "conformance", "negative", "layer", "stress"
+          Foreach ($type in $tests)
+          {
+            docker run --rm -v ${pwd}:C:\project -w C:\project\build -e CC=clcache -e CXX=clcache ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID} cmake -G Ninja -D REQUIRE_OPENCL_BENCHMARKS=yes -D GROUP="/${type}_tests" -D CMAKE_PREFIX_PATH="/boost;/zlib;/libpng;/opencl;C:\project\level-zero" -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=C:\project\level-zero-tests-${type} C:\project
+            docker run --rm -v ${pwd}:C:\project -w C:\project\build -v C:\clcache-lz_tests:C:\clcache -e CLCACHE_DIR=C:\clcache ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID} cmake --build . --target install
+
+            docker create --name ${env:GITHUB_RUN_ID} ${env:BUILD_IMAGE}:${env:GITHUB_RUN_ID}
+            docker cp ${env:GITHUB_RUN_ID}:C:\libpng\bin\libpng16.dll .\level-zero-tests-${type}
+            docker cp ${env:GITHUB_RUN_ID}:C:\zlib\bin\zlib1.dll .\level-zero-tests-${type}
+            docker stop ${env:GITHUB_RUN_ID}
+            docker rm ${env:GITHUB_RUN_ID}
+          }
+      - name: Publish tests
+        if: github.event_name == 'push'
+        run: |
+          $env:SHORT_SHA = git rev-parse --short=7 ${env:GITHUB_SHA}
+          
+          $tests = "perf", "conformance", "negative", "layer", "stress"
+          Foreach ($type in $tests)
+          {
+            dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory  ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests/master/windows/install level-zero-tests-${type} ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} level-zero-tests-${type}
+          }
+
+  deploy-legacygta:
+    runs-on: gklab-l0win-2
+    needs: [build-windows, build-linux]
+    if: github.event_name == 'push'
+    steps:
+      - name: Package and Upload Legacy GTA Artifacts
+        run: |
+          $env:SHORT_SHA = git rev-parse --short=7 ${env:GITHUB_SHA}
+          $tests = "perf", "conformance", "negative", "stress"
+          Foreach ($type in $tests)
+          {
+            mkdir -p ./level-zero-tests-${type}-u1804+win -f
+            cp -Force -r ./level-zero-tests-${type} ./level-zero-tests-${type}-u1804+win/${type}-tests-win64
+            if ( $type -eq "conformance" )
+            {
+              cp -Force -r ./level-zero-tests-layer/* ./level-zero-tests-${type}-u1804+win/${type}-tests-win64
+            }
+            pushd ./level-zero-tests-${type}-u1804+win
+            Compress-Archive -Force -Path ${type}-tests-win64 -DestinationPath ${type}-tests-win64.zip
+            Remove-Item .\${type}-tests-win64\ -Recurse
+            popd
+            dt asset download --root-url https://gfx-assets.fm.intel.com/artifactory --dest-dir . ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta-linux-staging/master level-zero-tests-${type}-u1804+win ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID}
+            dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory  ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta/master level-zero-tests-${type}-u1804+win ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} ./level-zero-tests-${type}-u1804+win
+          }
