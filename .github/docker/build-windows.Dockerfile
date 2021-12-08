@@ -128,19 +128,11 @@ RUN cd C:\VS\Common7\Tools & VsDevCmd && `
 FROM toolchain AS toolchain_deps_boost
 
 # install boost
-SHELL ["powershell"]
-RUN [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; `
-    cd C:\TEMP; `
-    wget `
-      -Uri https://dl.bintray.com/boostorg/release/1.70.0/source/boost_1_70_0.zip `
-      -OutFile boost_1_70_0.zip `
-      -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::InternetExplorer; `
-    . 'C:\Program Files\7-Zip\7z.exe' x boost_1_70_0.zip; `
-    rm boost_1_70_0.zip
 SHELL ["cmd", "/S", "/C"]
 RUN cd C:\VS\Common7\Tools & VsDevCmd && `
     call "%VCInstallDir%\Auxiliary\Build\vcvars64.bat" && `
-    cd C:\TEMP\boost_1_70_0 && `
+    git clone --recurse-submodules --branch boost-1.70.0 https://github.com/boostorg/boost.git && `
+    cd boost && `
     .\bootstrap && `
     .\b2 install `
       -j 4 `
