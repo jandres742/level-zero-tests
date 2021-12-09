@@ -208,9 +208,6 @@ jobs:
 
   build-windows:
     runs-on: gklab-l0win-2
-    env:
-        http_proxy: http://proxy-chain.intel.com:911
-        https_proxy: http://proxy-chain.intel.com:911
     steps:
       - name: Setup GIT Support for tests checkout
         run: |
@@ -246,19 +243,18 @@ jobs:
         if: github.ref == 'refs/heads/master'
         run: |
           $env:SHORT_SHA = git rev-parse --short=7 ${env:GITHUB_SHA}
-          
           $tests = "perf", "conformance", "negative", "layer", "stress"
           Foreach ($type in $tests)
           {
-            dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory  ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests/master/windows/install level-zero-tests-${type} ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} level-zero-tests-${type}
+            dt asset publish `
+              --root-url https://gfx-assets.fm.intel.com/artifactory `
+              ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests/master/windows/install `
+              level-zero-tests-${type} `
+              ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} `
+              level-zero-tests-${type}
           }
-
-  deploy-legacygta:
-    runs-on: gklab-l0win-2
-    needs: [build-windows, build-linux]
-    if: github.ref == 'refs/heads/master'
-    steps:
-      - name: Package and Upload Legacy GTA Artifacts
+      - name: Publish legacygta windows asset
+        if: github.ref == 'refs/heads/master'
         run: |
           $env:SHORT_SHA = git rev-parse --short=7 ${env:GITHUB_SHA}
           $tests = "perf", "conformance", "negative", "stress"
@@ -274,6 +270,42 @@ jobs:
             Compress-Archive -Force -Path ${type}-tests-win64 -DestinationPath ${type}-tests-win64.zip
             Remove-Item .\${type}-tests-win64\ -Recurse
             popd
-            dt asset download --root-url https://gfx-assets.fm.intel.com/artifactory --dest-dir ./level-zero-tests-${type}-u1804+win ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta-linux-staging/master level-zero-tests-${type}-u1804+win ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID}
-            dt asset publish --root-url https://gfx-assets.fm.intel.com/artifactory  ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta/master level-zero-tests-${type}-u1804+win ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} ./level-zero-tests-${type}-u1804+win
+            dt asset publish `
+              --root-url https://gfx-assets.fm.intel.com/artifactory `
+              ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta-windows-staging/master `
+              level-zero-tests-${type}-u1804+win `
+              ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} `
+              ./level-zero-tests-${type}-u1804+win
           }
+
+  deploy-legacygta:
+    runs-on: [self-hosted, linux, onecloud]
+    needs: [build-windows, build-linux]
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          clean: true
+          submodules: recursive
+      - name: Package and Upload Legacy GTA Artifacts
+        run: |
+          set -x
+          SHORT_SHA=`git rev-parse --short=7 ${GITHUB_SHA}`
+          for type in perf conformance negative stress; do
+              for os in linux windows; do
+                  dt asset download \
+                    --root-url https://gfx-assets.fm.intel.com/artifactory \
+                    ${LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta-${os}-staging/master \
+                    level-zero-tests-${type}-u1804+win \
+                    ${SHORT_SHA}-github_${GITHUB_RUN_ID}
+              done
+              rm -f dest-dir/.assetversion
+              mv dest-dir level-zero-tests-${type}-u1804+win
+              dt asset publish \
+                --root-url https://gfx-assets.fm.intel.com/artifactory  \
+                ${LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta/master \
+                level-zero-tests-${type}-u1804+win \
+                ${SHORT_SHA}-github_${GITHUB_RUN_ID} \
+                ./level-zero-tests-${type}-u1804+win
+          done
