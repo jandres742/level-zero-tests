@@ -154,26 +154,27 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             data["attributes"].update(basic_tag)
         with open(json_name, "w") as write_file:
             json.dump(data, write_file, indent=4)
-    elif (os.path.exists(json_name)):
-        with open(json_name, "r") as read_file:
-            json_file_data = read_file.read()
-            current_data = json.loads(json_file_data)
-            for key in data:
-                if key in current_data.keys():
-                    if current_data[key] != data[key]:
-                        if test_feature_tag == "gta.planning.attributes.tags.LEVEL_ZERO_BASIC_FEATURES" and not allow_setting_basic_features:
-                            return
-                        if key == "name" and current_data[key] != data[key]:
-                            print("ERROR: test case " + test_name + " is being renamed, please revert rename.\n")
-                            exit(-1)
-                        if key == "attributes":
-                            return
-                        else:
-                            current_data[key] = data[key]
-                else:
-                    current_data[key] = data[key]
-        with open(json_name, "w") as write_file:
-            json.dump(current_data, write_file, indent=4)
+    # Disable Overwrite of existing JSONs until DCN tracking fixed in script
+    # elif (os.path.exists(json_name)):
+    #     with open(json_name, "r") as read_file:
+    #         json_file_data = read_file.read()
+    #         current_data = json.loads(json_file_data)
+    #         for key in data:
+    #             if key in current_data.keys():
+    #                 if current_data[key] != data[key]:
+    #                     if test_feature_tag == "gta.planning.attributes.tags.LEVEL_ZERO_BASIC_FEATURES" and not allow_setting_basic_features:
+    #                         return
+    #                     if key == "name" and current_data[key] != data[key]:
+    #                         print("ERROR: test case " + test_name + " is being renamed, please revert rename.\n")
+    #                         exit(-1)
+    #                     if key == "attributes":
+    #                         return
+    #                     else:
+    #                         current_data[key] = data[key]
+    #             else:
+    #                 current_data[key] = data[key]
+    #     with open(json_name, "w") as write_file:
+    #         json.dump(current_data, write_file, indent=4)
 
 
 def assign_gta_test_feature_tag(test_feature: str, test_name: str, test_section: str,):
