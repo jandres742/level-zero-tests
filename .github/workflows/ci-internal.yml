@@ -1,3 +1,6 @@
+# ci-internal.yml runs from the inernal-only intel-innersource repository,
+# while ci-external.yml runs from the externally facing oneapi-src repository.
+
 on:
   push:
     branches: [ master ]
