@@ -31,17 +31,13 @@ popd
 pwd
 export ZE_ENABLE_NULL_DRIVER=1
 python3 ci_generate_json_files.py --binary_dir $1 --level_zero_lib_dir ../../level_zero_loader/build/lib --dave_test_item_dir ../../dave-compute-library/library/test_items/level0/
-RESULT=$?
-if [ $RESULT -eq 0 ]; then
-    # Create the commit and push the branch
-    pushd ../../dave-compute-library
-    git add -A
-    git commit -a -m "L0 Test Item Update $GITHASH" -s
-    RESULT=$?
-    if [ $RESULT -eq 0 ]; then
-        git push origin L0_Test_Item_UPDATE_$GITHASH -f
-    fi
-    echo Generate Json Successfully created
+
+# Create the commit and push the branch
+pushd ../../dave-compute-library
+git add -A
+if git commit -a -m "L0 Test Item Update $GITHASH" -s; then
+    git push origin L0_Test_Item_UPDATE_$GITHASH -f
+    echo Test item updates published
 else
-    echo Generate Json Failed
+    echo No updates to publish
 fi
