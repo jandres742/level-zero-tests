@@ -44,7 +44,7 @@ SmokeTestList = ["L0_CTS_SamplerCreationCombinations_zeDeviceCreateSamplerTests_
                  "L0_CTS_zeCommandListAppendMemoryCopyWithDataVerificationTests_GivenDeviceMemoryToDeviceMemoryAndSizeWhenAppendingMemoryCopyThenSuccessIsReturnedAndCopyIsCorrect"]
 
 
-def create_test_item_json(dave_library_path: str, test_name: str, test_filter: str, test_feature: str, test_feature_tag: str):
+def create_test_item_json(dave_library_path: str, test_name: str, test_filter: str, test_feature: str, test_feature_tag: str, test_section_tag: str):
     if (test_feature.find("Images") != -1 ) or \
        (test_feature.find("Image Samplers") != -1) or \
        (test_feature.find("Samplers") != -1) or \
@@ -60,9 +60,6 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             "owner": "nrspruit",
             "plugin": "test_compute",
             "arguments": "levelzero_conformance_tests " + test_filter,
-            "resources": [
-                "level-zero-conformance"
-            ],
             "metadata": {
                 "required_capabilities": {
                     "ze_device_image_properties_t": {
@@ -76,7 +73,10 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
                 "Test type": "Functional",
                 "Timeout": "600",
                 test_feature_tag: "true"
-            }
+            },
+            "resources": [
+                "level-zero-conformance"
+            ]
         }
     elif test_feature_tag == "gta.planning.attributes.tags.LEVEL_ZERO_NEGATIVE_TESTS":
         data = {
@@ -86,16 +86,16 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             "owner": "nrspruit",
             "plugin": "test_compute",
             "arguments": "levelzero_conformance_tests " + test_filter,
-            "resources": [
-                "level-zero-negative"
-            ],
             "attributes": {
                 "Component": "Level Zero",
                 "Feature": test_feature,
                 "Test type": "Functional",
                 "Timeout": "600",
                 test_feature_tag: "true"
-            }
+            },
+            "resources": [
+                "level-zero-negative"
+            ]
         }
     elif test_feature_tag == "gta.planning.attributes.tags.LEVEL_ZERO_STRESS_TESTS":
         data = {
@@ -105,16 +105,16 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             "owner": "nrspruit",
             "plugin": "test_compute",
             "arguments": "levelzero_conformance_tests " + test_filter,
-            "resources": [
-                "level-zero-stress"
-            ],
             "attributes": {
                 "Component": "Level Zero",
                 "Feature": test_feature,
                 "Test type": "Functional",
                 "Timeout": "600",
                 test_feature_tag: "true"
-            }
+            },
+            "resources": [
+                "level-zero-stress"
+            ]
         }
     else:
         data = {
@@ -124,16 +124,16 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             "owner": "nrspruit",
             "plugin": "test_compute",
             "arguments": "levelzero_conformance_tests " + test_filter,
-            "resources": [
-                "level-zero-conformance"
-            ],
             "attributes": {
                 "Component": "Level Zero",
                 "Feature": test_feature,
                 "Test type": "Functional",
                 "Timeout": "600",
                 test_feature_tag: "true"
-            }
+            },
+            "resources": [
+                "level-zero-conformance"
+            ]
         }
     json_name = dave_library_path + "/" + test_name + ".json"
     # If the json file already exists, then avoid overwrite
@@ -145,6 +145,10 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
         data["attributes"].update(smoke_tag)
         data["attributes"].update(smoke_timeout)
 
+    if (test_section_tag == "gta.planning.attributes.tags.LEVEL_ZERO_CORE_FEATURES"):
+        section_tag = {test_section_tag: "true"}
+        data["attributes"].update(section_tag)
+
     if not (os.path.exists(json_name)):
         print("test case " + test_name + " is new\n")
         if test_feature_tag == "gta.planning.attributes.tags.LEVEL_ZERO_BASIC_FEATURES" and not allow_setting_basic_features:
@@ -154,28 +158,21 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
             data["attributes"].update(basic_tag)
         with open(json_name, "w") as write_file:
             json.dump(data, write_file, indent=4)
-    # Disable Overwrite of existing JSONs until DCN tracking fixed in script
-    # elif (os.path.exists(json_name)):
-    #     with open(json_name, "r") as read_file:
-    #         json_file_data = read_file.read()
-    #         current_data = json.loads(json_file_data)
-    #         for key in data:
-    #             if key in current_data.keys():
-    #                 if current_data[key] != data[key]:
-    #                     if test_feature_tag == "gta.planning.attributes.tags.LEVEL_ZERO_BASIC_FEATURES" and not allow_setting_basic_features:
-    #                         return
-    #                     if key == "name" and current_data[key] != data[key]:
-    #                         print("ERROR: test case " + test_name + " is being renamed, please revert rename.\n")
-    #                         exit(-1)
-    #                     if key == "attributes":
-    #                         return
-    #                     else:
-    #                         current_data[key] = data[key]
-    #             else:
-    #                 current_data[key] = data[key]
-    #     with open(json_name, "w") as write_file:
-    #         json.dump(current_data, write_file, indent=4)
+    elif (os.path.exists(json_name)):
+        if (test_section_tag == "gta.planning.attributes.tags.LEVEL_ZERO_CORE_FEATURES"):
+            with open(json_name, "r") as read_file:
+                json_file_data = read_file.read()
+                current_data = json.loads(json_file_data)
+                core_tag = {test_section_tag: "true"}
+                current_data["attributes"].update(core_tag)
+            with open(json_name, "w") as write_file:
+                json.dump(current_data, write_file, indent=4)
 
+def assign_gta_test_section_tag(test_section: str):
+    test_section_tag = "NONE"
+    if test_section == "core":
+        test_section_tag = "gta.planning.attributes.tags.LEVEL_ZERO_CORE_FEATURES"
+    return test_section_tag
 
 def assign_gta_test_feature_tag(test_feature: str, test_name: str, test_section: str,):
     test_feature_tag = level_zero_report_utils.assign_test_feature_tag(test_feature, test_name, test_section)
@@ -193,6 +190,7 @@ def assign_gta_test_feature_tag(test_feature: str, test_name: str, test_section:
         test_feature_tag = "gta.planning.attributes.tags.LEVEL_ZERO_STRESS_TESTS"
     else:
         test_feature_tag = "gta.planning.attributes.tags.LEVEL_ZERO_ADVANCED_FEATURES"
+
     return test_feature_tag
 
 def create_gta_test_item(suite_name: str, test_binary: str, line: str, dave_dir: str):
@@ -218,7 +216,8 @@ def create_gta_test_item(suite_name: str, test_binary: str, line: str, dave_dir:
         if (test_section == "None"):
             test_section= test_section_by_feature
         test_feature_tag = assign_gta_test_feature_tag(test_feature, test_name, test_section)
-        create_test_item_json(dave_dir, test_name, test_filter, test_feature, test_feature_tag)
+        test_section_tag = assign_gta_test_section_tag(test_section)
+        create_test_item_json(dave_dir, test_name, test_filter, test_feature, test_feature_tag, test_section_tag)
 
 def generate_test_items_for_binary(dave_dir: str, binary_dir: str, level_zero_lib_dir: str, test_binary: str):
     test_binary_path = os.path.join(binary_dir, test_binary)
