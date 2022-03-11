@@ -148,8 +148,7 @@ jobs:
           SHORT_SHA=`git rev-parse --short=7 ${GITHUB_SHA}`
 
           for type in perf conformance negative layer stress; do
-              dt asset publish \
-                --root-url https://gfx-assets.fm.intel.com/artifactory \
+              ./.github/scripts/publish.sh \
                 ${LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests/master/${{ matrix.BUILD_PLATFORM }}/install \
                 level-zero-tests-${type} \
                 ${SHORT_SHA}-github_${GITHUB_RUN_ID} \
@@ -172,8 +171,7 @@ jobs:
               tar -czvf ${type}-tests-Linux.tar.gz ${type}-tests-Linux;
               rm -rf ${type}-tests-Linux;
               popd;
-              dt asset publish \
-                --root-url https://gfx-assets.fm.intel.com/artifactory \
+              ./.github/scripts/publish.sh \
                 ${LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta-linux-staging/master \
                 level-zero-tests-${type}-u1804+win \
                 ${SHORT_SHA}-github_${GITHUB_RUN_ID} \
@@ -249,8 +247,7 @@ jobs:
           $tests = "perf", "conformance", "negative", "layer", "stress"
           Foreach ($type in $tests)
           {
-            dt asset publish `
-              --root-url https://gfx-assets.fm.intel.com/artifactory `
+            .\.github\scripts\publish.ps1 `
               ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests/master/windows/install `
               level-zero-tests-${type} `
               ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} `
@@ -273,8 +270,7 @@ jobs:
             Compress-Archive -Force -Path ${type}-tests-win64 -DestinationPath ${type}-tests-win64.zip
             Remove-Item .\${type}-tests-win64\ -Recurse
             popd
-            dt asset publish `
-              --root-url https://gfx-assets.fm.intel.com/artifactory `
+            .\.github\scripts\publish.ps1 `
               ${env:LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta-windows-staging/master `
               level-zero-tests-${type}-u1804+win `
               ${env:SHORT_SHA}-github_${env:GITHUB_RUN_ID} `
@@ -305,8 +301,7 @@ jobs:
               done
               rm -f dest-dir/.assetversion
               mv dest-dir level-zero-tests-${type}-u1804+win
-              dt asset publish \
-                --root-url https://gfx-assets.fm.intel.com/artifactory  \
+              ./.github/scripts/publish.sh \
                 ${LZ_DEPLOY_ARTIFACTORY_PREFIX}/level-zero-tests-legacygta/master \
                 level-zero-tests-${type}-u1804+win \
                 ${SHORT_SHA}-github_${GITHUB_RUN_ID} \
