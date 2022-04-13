@@ -170,7 +170,7 @@ def create_test_item_json(dave_library_path: str, test_name: str, test_filter: s
 
 def assign_gta_test_section_tag(test_section: str):
     test_section_tag = "NONE"
-    if test_section == "core":
+    if test_section == "Core":
         test_section_tag = "gta.planning.attributes.tags.LEVEL_ZERO_CORE_FEATURES"
     return test_section_tag
 
