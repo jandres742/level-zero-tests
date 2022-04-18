@@ -95,9 +95,11 @@ static const char *usage_str =
 class ZePeer {
 public:
   ZePeer(const uint32_t command_queue_group_ordinal,
-         const uint32_t command_queue_index, uint32_t dst_device_id,
-         uint32_t src_device_id, bool run_using_all_compute_engines,
-         bool run_using_all_copy_engines, uint32_t *num_devices) {
+         const uint32_t command_queue_index,
+         std::vector<uint32_t> remote_device_ids,
+         std::vector<uint32_t> local_device_ids,
+         bool run_using_all_compute_engines, bool run_using_all_copy_engines,
+         uint32_t *num_devices) {
 
     benchmark = new ZeApp();
 
@@ -109,24 +111,28 @@ public:
       *num_devices = device_count;
     }
 
-    if (!benchmark->canAccessPeer(dst_device_id, src_device_id)) {
-      std::cerr << "Devices " << src_device_id << " and " << dst_device_id
-                << " do not have P2P capabilities " << std::endl;
-      std::terminate();
+    for (auto dst_device_id : remote_device_ids) {
+      for (auto src_device_id : local_device_ids) {
+        if (benchmark->_devices.size() <
+            std::max(dst_device_id + 1, src_device_id + 1)) {
+          std::cout << "ERROR: Number for source or destination device not "
+                    << "available: Only " << benchmark->_devices.size()
+                    << " devices "
+                    << "detected" << std::endl;
+          std::terminate();
+        }
+
+        if (!benchmark->canAccessPeer(dst_device_id, src_device_id)) {
+          std::cerr << "Devices " << src_device_id << " and " << dst_device_id
+                    << " do not have P2P capabilities " << std::endl;
+          std::terminate();
+        }
+      }
     }
 
     if (benchmark->_devices.size() <= 1) {
       std::cerr << "ERROR: there are no peer devices among " << device_count
                 << " devices found" << std::endl;
-      std::terminate();
-    }
-
-    if (benchmark->_devices.size() <
-        std::max(dst_device_id + 1, src_device_id + 1)) {
-      std::cout << "ERROR: Number for source or destination device not "
-                << "available: Only " << benchmark->_devices.size()
-                << " devices "
-                << "detected" << std::endl;
       std::terminate();
     }
 
