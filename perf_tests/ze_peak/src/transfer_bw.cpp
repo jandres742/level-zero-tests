@@ -16,65 +16,80 @@ long double ZePeak::_transfer_bw_gpu_copy(L0Context &context,
   long double gbps = 0, timed = 0;
   ze_result_t result = ZE_RESULT_SUCCESS;
 
-  for (uint32_t i = 0; i < warmup_iterations; i++) {
-    if (context.sub_device_count) {
-      result = zeCommandListAppendMemoryCopy(
-          context.cmd_list[current_sub_device_id], destination_buffer,
-          source_buffer, buffer_size, nullptr, 0, nullptr);
-      if (result) {
-        throw std::runtime_error("zeCommandListAppendMemoryCopy failed: " +
-                                 std::to_string(result));
-      }
-    } else {
-      result = zeCommandListAppendMemoryCopy(context.command_list,
-                                             destination_buffer, source_buffer,
-                                             buffer_size, nullptr, 0, nullptr);
-      if (result) {
-        throw std::runtime_error("zeCommandListAppendMemoryCopy failed: " +
-                                 std::to_string(result));
-      }
+  if (context.sub_device_count) {
+
+    context.reset_commandlist(context.cmd_list[current_sub_device_id]);
+
+    result = zeCommandListAppendMemoryCopy(
+        context.cmd_list[current_sub_device_id], destination_buffer,
+        source_buffer, buffer_size, nullptr, 0, nullptr);
+    if (result) {
+      throw std::runtime_error("zeCommandListAppendMemoryCopy failed: " +
+                                std::to_string(result));
     }
-    if (context.copy_command_list) {
-      result = zeCommandListAppendMemoryCopy(context.copy_command_list,
-                                             destination_buffer, source_buffer,
-                                             buffer_size, nullptr, 0, nullptr);
-      if (result) {
-        std::cout << "Error appending to copy command list";
-      }
+
+    result = zeCommandListClose(context.cmd_list[current_sub_device_id]);
+    if (result) {
+      throw std::runtime_error("zeCommandListClose failed: " +
+                                std::to_string(result));
     }
+    if (verbose)
+      std::cout << "Command list closed\n";
+
+  } else {
+    context.reset_commandlist(context.command_list);
+
+    result = zeCommandListAppendMemoryCopy(context.command_list,
+                                            destination_buffer, source_buffer,
+                                            buffer_size, nullptr, 0, nullptr);
+    if (result) {
+      throw std::runtime_error("zeCommandListAppendMemoryCopy failed: " +
+                                std::to_string(result));
+    }
+
+    result = zeCommandListClose(context.command_list);
+    if (result) {
+      throw std::runtime_error("zeCommandListClose failed: " +
+                                std::to_string(result));
+    }
+    if (verbose)
+      std::cout << "Command list closed\n";
+  }
+  if (context.copy_command_list) {
+
+    context.reset_commandlist(context.copy_command_list);
+
+    result = zeCommandListAppendMemoryCopy(context.copy_command_list,
+                                            destination_buffer, source_buffer,
+                                            buffer_size, nullptr, 0, nullptr);
+    if (result) {
+      std::cout << "Error appending to copy command list";
+    }
+
+    result = zeCommandListClose(context.copy_command_list);
+    if (result) {
+      throw std::runtime_error("zeCommandListClose failed: " +
+                                std::to_string(result));
+    }
+    if (verbose)
+      std::cout << "Command list closed\n";
   }
 
-  context.execute_commandlist_and_sync();
-  if (context.copy_command_queue)
-    context.execute_commandlist_and_sync(true);
+
+  for (uint32_t i = 0; i < warmup_iterations; i++) {
+    context.execute_commandlist_and_sync();
+  }
 
   timer.start();
   for (uint32_t i = 0; i < iters; i++) {
-    if (context.sub_device_count) {
-      result = zeCommandListAppendMemoryCopy(
-          context.cmd_list[current_sub_device_id], destination_buffer,
-          source_buffer, buffer_size, nullptr, 0, nullptr);
-      if (result) {
-        throw std::runtime_error("zeCommandListAppendMemoryCopy failed: " +
-                                 std::to_string(result));
-      }
-    } else {
-      result = zeCommandListAppendMemoryCopy(context.command_list,
-                                             destination_buffer, source_buffer,
-                                             buffer_size, nullptr, 0, nullptr);
-      if (result) {
-        throw std::runtime_error("zeCommandListAppendMemoryCopy failed: " +
-                                 std::to_string(result));
-      }
-    }
+    context.execute_commandlist_and_sync();
   }
-
-  context.execute_commandlist_and_sync();
   timed = timer.stopAndTime();
   timed /= static_cast<long double>(iters);
 
   gbps = calculate_gbps(timed, static_cast<long double>(buffer_size));
 
+#if 0
   if (context.copy_command_queue) {
     timer.start();
     for (uint32_t i = 0; i < iters; i++) {
@@ -96,6 +111,7 @@ long double ZePeak::_transfer_bw_gpu_copy(L0Context &context,
     std::cout << "\t With Blitter Engine on sub-device "
               << current_sub_device_id << " :" << gbps << " GBPS\n";
   }
+#endif
   return gbps;
 }
 

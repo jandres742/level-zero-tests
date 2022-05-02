@@ -539,23 +539,12 @@ void L0Context::clean_xe() {
 // list have been completed.
 // On error, an exception will be thrown describing the failure.
 //---------------------------------------------------------------------
-void L0Context::execute_commandlist_and_sync(bool use_copy_only_queue) {
+void L0Context::execute_commandlist_and_sync() {
   ze_result_t result = ZE_RESULT_SUCCESS;
 
   if (sub_device_count) {
     for (auto i = 0; i < sub_device_count; i++) {
-      auto cmd_l = use_copy_only_queue ? copy_command_list : cmd_list[i];
-      auto cmd_q = use_copy_only_queue ? copy_command_queue : cmd_queue[i];
-
-      result = zeCommandListClose(cmd_l);
-      if (result) {
-        throw std::runtime_error("zeCommandListClose failed: " +
-                                 std::to_string(result));
-      }
-      if (verbose)
-        std::cout << "Command list closed\n";
-
-      result = zeCommandQueueExecuteCommandLists(cmd_q, 1, &cmd_l, nullptr);
+      result = zeCommandQueueExecuteCommandLists(command_queue, 1, &command_list, nullptr);
       if (result) {
         throw std::runtime_error("zeCommandQueueExecuteCommandLists failed: " +
                                  std::to_string(result));
@@ -563,30 +552,17 @@ void L0Context::execute_commandlist_and_sync(bool use_copy_only_queue) {
       if (verbose)
         std::cout << "Command list enqueued\n";
 
-      result = zeCommandQueueSynchronize(cmd_q, UINT64_MAX);
+      result = zeCommandQueueSynchronize(command_queue, UINT64_MAX);
       if (result) {
         throw std::runtime_error("zeCommandQueueSynchronize failed: " +
                                  std::to_string(result));
       }
       if (verbose)
         std::cout << "Command queue synchronized\n";
-
-      reset_commandlist(cmd_l);
     }
 
   } else {
-    auto cmd_list = use_copy_only_queue ? copy_command_list : command_list;
-    auto cmd_q = use_copy_only_queue ? copy_command_queue : command_queue;
-
-    result = zeCommandListClose(cmd_list);
-    if (result) {
-      throw std::runtime_error("zeCommandListClose failed: " +
-                               std::to_string(result));
-    }
-    if (verbose)
-      std::cout << "Command list closed\n";
-
-    result = zeCommandQueueExecuteCommandLists(cmd_q, 1, &cmd_list, nullptr);
+    result = zeCommandQueueExecuteCommandLists(command_queue, 1, &command_list, nullptr);
     if (result) {
       throw std::runtime_error("zeCommandQueueExecuteCommandLists failed: " +
                                std::to_string(result));
@@ -594,15 +570,13 @@ void L0Context::execute_commandlist_and_sync(bool use_copy_only_queue) {
     if (verbose)
       std::cout << "Command list enqueued\n";
 
-    result = zeCommandQueueSynchronize(cmd_q, UINT64_MAX);
+    result = zeCommandQueueSynchronize(command_queue, UINT64_MAX);
     if (result) {
       throw std::runtime_error("zeCommandQueueSynchronize failed: " +
                                std::to_string(result));
     }
     if (verbose)
       std::cout << "Command queue synchronized\n";
-
-    reset_commandlist(cmd_list);
   }
 }
 

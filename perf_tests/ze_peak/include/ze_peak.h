@@ -70,7 +70,7 @@ struct L0Context {
   void clean_xe();
   void print_ze_device_properties(const ze_device_properties_t &props);
   void reset_commandlist(ze_command_list_handle_t cmd_list);
-  void execute_commandlist_and_sync(bool use_copy_only_queue = false);
+  void execute_commandlist_and_sync();
   std::vector<uint8_t> load_binary_file(const std::string &file_path);
   void create_module(std::vector<uint8_t> binary_file);
   void ze_peak_query_engines();
